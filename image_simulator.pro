@@ -56,15 +56,14 @@ sc_qe = 0.85                    ; [% but as a fraction]
 sc_qy = 18.46                   ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63
 sc_dark_mean = 1D               ; [e-/px/s] Average Dark Current
 sc_read_noise = 5D              ; [e-] Read noise
-pixel_full_well = 27e3          ; [e-] Actually the peak lienar charge. The saturation charge is 33e3.
+pixel_full_well = 27e3          ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
 num_binned_pixels = 4D          ; [#] The number of pixels to bin
 sc_readout_bits = 16            ; [bits] Bit depth of readout electronics
 ;sc_bias_mean = 20D             ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
-;sc_gain = 10                   ; [phot/e-] ; (totally imaginary gain number)
 sc_gain = 1.8                   ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
 
 ; Telescope/detector calculations
-sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5
+sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
 sc_eff_area =  sc_aperture * sc_reflectivity * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
 
@@ -79,7 +78,7 @@ sc_phot_image = input_image * sc_eff_area * exposure_time_sec  ; [phot px^-1]
 ;; simulate photon generation shot noise by randomizing with poisson distribution
 ;; use a specific random number seed for repeatability
 sc_phot_sn_image = fltarr(image_size[0], image_size[1])
-for x = 0, 1023 do for y = 0, 1023 do sc_phot_sn_image[x, y] = (RANDOMU(10272011L, poisson = (sc_phot_image[x, y]) > 1e-8, /double) > 0.)
+for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do sc_phot_sn_image[x, y] = (RANDOMU(seed, poisson = (sc_phot_image[x, y]) > 1e-8, /double) > 0.)
 ; TODO: sanity check on the Poisson here
 ; TODO: sanity check by looking at before and after images
 
@@ -96,17 +95,17 @@ for x = 0, 1023 do for y = 0, 1023 do sc_phot_sn_image[x, y] = (RANDOMU(10272011
 ;BiasFrame = RANDOMU(921979L, image_size[0], image_size[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-DarkFrame_Base = RANDOMU(979129L, image_size[0], image_size[1], POISSON = (sc_dark_mean * exposure_time_sec)) ; Use fixed seed
+DarkFrame_Base = RANDOMU(979129L, image_size[0], image_size[1], NORMAL = (sc_dark_mean * exposure_time_sec)) ; Use fixed seed
 
 ;; Just for fun, add some crazy pixels
 DarkFrame_DeadPix = Float((randomn(1122008L, image_size[0], image_size[1]) * 5 + 18) gt 0) ; Use another fixed seed
-DarkFrame_HotPix = (Float((randomn(8675309L, image_size[0], image_size[1]) * 5 + 15) > 25) - 25) * 10. ; Use random seed
+DarkFrame_HotPix = (Float((randomn(seed, image_size[0], image_size[1]) * 5 + 15) > 25) - 25) * 10.
 
 ;; Generate a synthetic dark frame with proper exposure 
 DarkFrame = DarkFrame_Base * DarkFrame_DeadPix + DarkFrame_HotPix
 
 ;; Synthetic Read Noise
-ReadFrame = RANDOMU(4271979L, image_size[0], image_size[1], NORMAL = sc_read_noise)
+ReadFrame = RANDOMU(seed, image_size[0], image_size[1], NORMAL = sc_read_noise)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -116,19 +115,19 @@ ReadFrame = RANDOMU(4271979L, image_size[0], image_size[1], NORMAL = sc_read_noi
 ;; Dark Shot Noise 
 Dark_Final = fltarr(image_size[0], image_size[1])
 ; TODO: might not want to use Poisson here, could use a different distribution
-for x = 0, 1023 do for y = 0, 1023 do Dark_Final[x, y] = (randomn(5212014L, poisson = (darkframe[x, y]) > 1e-8) > 0.) ; use random seed
+for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Dark_Final[x, y] = (randomn(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
 ;; image in electrons 
 Image_Elec = sc_phot_sn_image * sc_qe * sc_qy * DarkFrame_DeadPix
-Image_Elec_Final = floor(Image_Elec + Dark_Final + ReadFrame) < sc_fw ; TODO: consider adding read noise later
+Image_Elec_Final = floor(Image_Elec + Dark_Final + ReadFrame) ; TODO: consider adding read noise later
 Noise_Final = Dark_Final + ReadFrame ; Useful for getting SNR ; TODO: need to account for shot noise
 
 ; TODO: Sanity check that there are still dead pixels (0 value)
 
-;; Signal/Noise 
+;; Signal/Noise
 Image_SigNoise = Image_Elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
-Image_DN_Final = floor(Image_Elec_Final / sc_conversion)
+Image_DN_Final = floor(Image_Elec_Final * sc_gain) < sc_fw  
 ; TODO: Sanity check: there should be no counts gt the full well
 
 

@@ -29,7 +29,7 @@
 ;   Just run it
 ;-
 PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES
-
+kill
 ; Defaults
 exposure_short = 0.025 ; [sec]
 exposure_long = 1.0 ; [sec]
@@ -73,7 +73,7 @@ phot_flux_image = phot_flux_image1 + phot_flux_image2 ; [photon cm^-2 s^-1 px^-1
 
 ; TODO: Replace the above with the new model that covers SunCET bandpass
 
-input_image = congrid(phot_flux_image, SunCET_image_size[0], SunCET_image_size[1])
+input_image = congrid(phot_flux_image, SunCET_image_size[0], SunCET_image_size[1], cubic=-0.5)
 
 image_simulator, input_image, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
 image_simulator, input_image, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
@@ -84,8 +84,8 @@ image_simulator, input_image, exposure_time_sec = exposure_long, output_SNR=snr_
 
 ; Disk bounds in pixels
 bound0 = 0    ; start pixel
-bound1 = 550  ; pixels in to solar limb
-bound2 = 950  ; pixels in to opposite solar limb
+bound1 = 500  ; pixels in to solar limb
+bound2 = 1000  ; pixels in to opposite solar limb
 bound3 = 1499 ; final pixel
 
 ; Disk pixels (circle)
@@ -102,6 +102,8 @@ im_disk = fltarr(SunCET_image_size)
 FOR i = 0, n_elements(mask2d[0, *]) - 1 DO BEGIN
   im_disk[mask2d[0, i], mask2d[1, i]] = image_short[mask2d[0, i], mask2d[1, i]]
 ENDFOR
+; Re-NaN since somehow ended up turning the NaNs to 0s
+im_disk[where(im_disk EQ 0)] = !VALUES.F_NAN
 
 ; Off disk pixels
 im_outer = im_disk
@@ -110,15 +112,25 @@ im_outer[bound0:bound1, *] = image_long[bound0:bound1, *]
 im_mid[bound1 + 1:bound2, *] = image_long[bound1 + 1:bound2, *]
 im_outer[bound2 + 1:bound3, *] = image_long[bound2 + 1:bound3, *]
 
-i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0)
+; Normalize by exposure time
+im_outer /= exposure_long
+im_mid /= exposure_long
+im_disk /= exposure_short
+
+i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
 i2 = image(im_mid^0.2, rgb_table=sub2, /OVERPLOT)
 i3 = image(im_disk^0.2, rgb_table=sub3, /OVERPLOT)
 
 
 STOP
-i1 = image(im_outer^0.2, max_value=max(input_image)^0.2, min_value=min(input_image^0.2), rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0)
-i2 = image(im_mid^0.2, max_value=max(input_image)^0.2, min_value=min(input_image^0.2), rgb_table=sub2, /OVERPLOT)
-i3 = image(im_disk^0.2, max_value=max(input_image)^0.2, min_value=min(input_image^0.2), rgb_table=sub3, /OVERPLOT)
+i1 = image((im_outer)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
+i2 = image((im_mid)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
+i3 = image((im_disk)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
+
+STOP
+i1 = image(alog10(im_outer), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
+i2 = image(alog10(im_mid), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
+i3 = image(alog10(im_disk), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
 
 
