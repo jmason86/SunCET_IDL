@@ -32,7 +32,7 @@ PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES
 kill
 ; Defaults
 exposure_short = 0.025 ; [sec]
-exposure_long = 1.0 ; [sec]
+exposure_long = 3.0 ; [sec]
 SunCET_image_size = [1500, 1500]
 IF keyword_set(HIGHLIGHT_SUB_IMAGES) THEN BEGIN
   sub1 = 'RED TEMPERATURE'
@@ -121,13 +121,10 @@ i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0,
 i2 = image(im_mid^0.2, rgb_table=sub2, /OVERPLOT)
 i3 = image(im_disk^0.2, rgb_table=sub3, /OVERPLOT)
 
-
-STOP
 i1 = image((im_outer)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
 i2 = image((im_mid)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image((im_disk)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
 
-STOP
 i1 = image(alog10(im_outer), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
 i2 = image(alog10(im_mid), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image(alog10(im_disk), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)

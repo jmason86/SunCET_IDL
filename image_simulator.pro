@@ -70,6 +70,7 @@ sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera 
 ;
 ; Start creating images
 ;
+
 sc_phot_image = input_image * sc_eff_area * exposure_time_sec  ; [phot px^-1] 
 
 ; TODO: Consider adding in scattered light psf here, accounting for secondary mirror and spider mounts
