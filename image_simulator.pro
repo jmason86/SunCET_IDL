@@ -42,6 +42,8 @@ ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
+fixed_seed1 = 979129L
+fixed_seed2 = 1122008L
 
 ; Grab image dimensions for use throughout code
 image_size = size(input_image, /DIMENSIONS)
@@ -96,34 +98,34 @@ for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do sc_phot_sn_image
 ;BiasFrame = RANDOMU(921979L, image_size[0], image_size[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-DarkFrame_Base = RANDOMU(979129L, image_size[0], image_size[1], NORMAL = (sc_dark_mean * exposure_time_sec)) ; Use fixed seed
+DarkFrame_Base = RANDOMU(fixed_seed1, image_size[0], image_size[1], NORMAL = (sc_dark_mean * exposure_time_sec))
 
 ;; Just for fun, add some crazy pixels
-DarkFrame_DeadPix = Float((randomn(1122008L, image_size[0], image_size[1]) * 5 + 18) gt 0) ; Use another fixed seed
+DarkFrame_DeadPix = Float((randomn(fixed_seed2, image_size[0], image_size[1]) * 5 + 18) gt 0)
 DarkFrame_HotPix = (Float((randomn(seed, image_size[0], image_size[1]) * 5 + 15) > 25) - 25) * 10.
 
 ;; Generate a synthetic dark frame with proper exposure 
-DarkFrame = DarkFrame_Base * DarkFrame_DeadPix + DarkFrame_HotPix
+;DarkFrame = DarkFrame_Base * DarkFrame_DeadPix + DarkFrame_HotPix ; Removing dead pixels for now
+DarkFrame = DarkFrame_Base + DarkFrame_HotPix
 
 ;; Synthetic Read Noise
 ReadFrame = RANDOMU(seed, image_size[0], image_size[1], NORMAL = sc_read_noise)
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Dark Shot Noise 
+;; Dark Shot Noise
 Dark_Final = fltarr(image_size[0], image_size[1])
 ; TODO: might not want to use Poisson here, could use a different distribution
 for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Dark_Final[x, y] = (randomn(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
 ;; image in electrons 
-Image_Elec = sc_phot_sn_image * sc_qe * sc_qy * DarkFrame_DeadPix
+Image_Elec = sc_phot_sn_image * sc_qe * sc_qy; * DarkFrame_DeadPix
+Image_Elec_Shot_Noise = Image_Elec
+for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Image_Elec_Shot_Noise[x, y] = (randomn(seed, poisson = (Image_Elec[x, y]) > 1e-8, /DOUBLE) > 0.)
 Image_Elec_Final = floor(Image_Elec + Dark_Final + ReadFrame) ; TODO: consider adding read noise later
-Noise_Final = Dark_Final + ReadFrame ; Useful for getting SNR ; TODO: need to account for shot noise
-
-; TODO: Sanity check that there are still dead pixels (0 value)
+Noise_Final = Dark_Final + ReadFrame ; Useful for getting SNR
 
 ;; Signal/Noise
 Image_SigNoise = Image_Elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map

@@ -70,6 +70,27 @@ p3 = plot(slice_no_background / max(slice_no_background) * 100, 'tomato', THICK=
           XTITLE='row index')
 
 
+; Find knee in the slice
+slice = float(im[slice_column, top_non_bloom_row:blooming_extent_check_row]) ; No 10 pixel addition
+slice -= background
+slice /= max(slice)
+slice *= 100.
+slice = smooth(slice, 5)
+slope = deriv(findgen(n_elements(slice)), slice)
+tolerance = 0.5
+flat_indices = where(slope GT -tolerance AND slope LT tolerance)
+knee_index = flat_indices[0]
+
+; Convert that amount of blooming into how far it would extend for SunCET
+blooming_range_arcsec = knee_index * arcsec_per_pixel ; [arcsec/pixel]
+blooming_range_deg = blooming_range_arcsec / arcsec_per_deg
+blooming_range_Rs = blooming_range_deg / Rs_deg
+
+print, 'Blooming range = ' + jpmprintnumber(blooming_range_arcsec) + '"'
+print, 'Blooming range = ' + jpmprintnumber(blooming_range_deg, NUMBER_OF_DECIMALS=3) + 'º'
+print, 'Blooming range = ' + jpmprintnumber(blooming_range_Rs) + ' Rs'
+
+
 ; Look at all the slices 
 knee_extents = intarr(1999)
 
@@ -88,15 +109,6 @@ FOR slice_column = 0, n_elements(knee_extents) - 1 DO BEGIN
   
   knee_extents[slice_column] = knee_index
 ENDFOR
-
-; Convert that amount of blooming into how far it would extend for SunCET
-blooming_range_arcsec = knee_index * arcsec_per_pixel ; [arcsec/pixel]
-blooming_range_deg = blooming_range_arcsec / arcsec_per_deg
-blooming_range_Rs = blooming_range_deg / Rs_deg
-
-print, 'Blooming range = ' + jpmprintnumber(blooming_range_arcsec) + '"'
-print, 'Blooming range = ' + jpmprintnumber(blooming_range_deg, NUMBER_OF_DECIMALS=3) + 'º'
-print, 'Blooming range = ' + jpmprintnumber(blooming_range_Rs) + ' Rs'
 
 p = plot(knee_extents, THICK=2, $
          TITLE='Extent of Blooming (Multi-Slice)', $

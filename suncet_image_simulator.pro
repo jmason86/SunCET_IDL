@@ -117,15 +117,15 @@ im_outer /= exposure_long
 im_mid /= exposure_long
 im_disk /= exposure_short
 
-i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
+i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', TITLE='No Min Max')
 i2 = image(im_mid^0.2, rgb_table=sub2, /OVERPLOT)
 i3 = image(im_disk^0.2, rgb_table=sub3, /OVERPLOT)
 
-i1 = image((im_outer)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
+i1 = image((im_outer)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', TITLE='Min Max Scaled')
 i2 = image((im_mid)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image((im_disk)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
 
-i1 = image(alog10(im_outer), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black')
+i1 = image(alog10(im_outer), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', TITLE='Log')
 i2 = image(alog10(im_mid), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image(alog10(im_disk), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
