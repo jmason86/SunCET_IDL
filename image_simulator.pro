@@ -6,7 +6,7 @@
 ;   Take input images and realistically noise them up according to instrument parameters.
 ;
 ; INPUTS:
-;   input_image [fltarr]: The 2D image to generate noise for
+;   im_array [dblarr]: The 2D image to generate noise for, stacked into different wavelengths (if applicable) [x, y, lambda]
 ;
 ; OPTIONAL INPUTS:
 ;   exposure_time_sec [float]: Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
@@ -30,13 +30,13 @@
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
 
-PRO image_simulator, input_image, $
+PRO image_simulator, im_array, $
                      exposure_time_sec=exposure_time_sec, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
 
 ; Input check and defaults
-IF input_image EQ !NULL THEN BEGIN
-  message, /INFO, 'You must supply input_image as a regular input'
+IF im_array EQ !NULL THEN BEGIN
+  message, /INFO, 'You must supply im_array as a regular input'
   return
 ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
@@ -46,16 +46,16 @@ fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
 ; Grab image dimensions for use throughout code
-image_size = size(input_image, /DIMENSIONS)
+image_size = size(im_array, /DIMENSIONS)
 
 ;
 ; Telescope and detector parameters
 ;
 sc_aperture = 44.9              ; [cm^2]
-sc_reflectivity = 0.223 * 0.223 ; [% but as fraction] two mirrors -- each of those is the average reflectance
-sc_transmission = 0.6 * 0.85    ; [% but as fraction] entrance filter transmission * detector filter
-sc_qe = 0.85                    ; [% but as a fraction]
-sc_qy = 18.46                   ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63
+sc_reflectivity = 0.223 * 0.223 ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
+sc_transmission = 0.6 * 0.85    ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
+sc_qe = 0.85                    ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
+sc_qy = 18.46                   ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63); TODO: make wavelength dependent
 sc_dark_mean = 1D               ; [e-/px/s] Average Dark Current
 sc_read_noise = 5D              ; [e-] Read noise
 pixel_full_well = 27e3          ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
@@ -73,7 +73,11 @@ sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera 
 ; Start creating images
 ;
 
-sc_phot_image = input_image * sc_eff_area * exposure_time_sec  ; [phot px^-1] 
+; Apply effective area and exposure time
+sc_phot_images = im_array
+FOR i = 0, image_size[2] - 1 DO BEGIN
+  sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area * exposure_time_sec ; [photons / pixel (per lambda)]
+ENDFOR
 
 ; TODO: Consider adding in scattered light psf here, accounting for secondary mirror and spider mounts
 ; TODO: See what results Alan provides and see if that can be used directly as input

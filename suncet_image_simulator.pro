@@ -28,12 +28,44 @@
 ; EXAMPLE:
 ;   Just run it
 ;-
+
+;  What’s included in these images:
+;    Randomly saturated pixels (spikes)
+;    Random dark frame (Gaussian distribution)
+;    Shot noise on the dark frame (Poisson distribution)
+;    Random read noise (Gaussian distribution)
+;    Photon shot noise (Poisson distribution)
+;    171 + 193 Å AIA bandpasses (SunCET bandpass coming this week)
+;    SunCET aperture size
+;    Two mirror coating bounces with mean reflectivity
+;    Transmission through entrance AND detector filters
+;    Detector quantum efficiency, yield, mean dark, read noise, full well, readout # bits, gain
+;    SHDR compositing (but NOT yet median stack)
+;  
+;  NOT yet included but planned
+;  TODO:
+;    Get it working with Meng's SunCET optimized MHD simulation
+;      SunCET bandpass -- telecon with Meng
+;      Pixel scale -- telecon with Meng
+;      
+;    Make quantum yield wavelength dependent
+;    Image stack median
+;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2)
+;    
+;    Electron shot noise (Poisson distribution?)
+;    Jitter (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
+;    Diffraction from entrance filter mesh (NOPE)
+;    Shadows from focal plane filter mesh (effect should be removable in post)
+;    Shadowing from focal plane filter mesh
+;    Scattered light
+;    Blooming around saturated pixels (do last pending lab blooming analysis)
+;    Dead pixels (based on knowledge of our detector)
+;    Loop over time to create movie
+
+
 PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES
 kill
 ; Defaults
-exposure_short = 0.025 ; [sec]
-exposure_long = 3.0 ; [sec]
-SunCET_image_size = [1500, 1500]
 IF keyword_set(HIGHLIGHT_SUB_IMAGES) THEN BEGIN
   sub1 = 'RED TEMPERATURE'
   sub2 = 'CB-Oranges'
@@ -44,39 +76,74 @@ ENDIF ELSE BEGIN
   sub3 = sub1
 ENDELSE
 
+; Constants
+h = 6.62606957d-34 ; [Js]
+c = 299792458.d    ; [m/s]
+aia_plate_scale = 0.6 ; [arcsec/pixel]
+SunCET_plate_scale = 4.8 ; [arcsec/pixel]
+SunCET_pixel_bin = 4 ; number of pixels that go into one spatial resolution element
+SunCET_spatial_resolution = SunCET_plate_scale * SunCET_pixel_bin
+exposure_short = 0.025 ; [sec]
+exposure_long = 3.0 ; [sec]
+SunCET_image_size = [1500, 1500]
 
-restore, '/Users/jmason86/Dropbox/Research/Data/AIA/aia_response.sav'
-restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/aia_sim/aia_sim_049.sav'
+;restore, '/Users/jmason86/Dropbox/Research/Data/AIA/aia_response.sav'
+;restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/aia_sim/aia_sim_049.sav'
+restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_200.sav'
 
-; get a model image
-image1 = aia193_image.data
-image2 = aia171_image.data
+; Pull out the simulation plate scale and wavelengths
+sim_plate_scale = euv171_image.dx
+waves = [171, 177, 180, 195, 202]*1e-10 ; [m]
+
+sim_array = [[[euv171_image.data]], $
+             [[euv177_image.data]], $
+             [[euv180_image.data]], $
+             [[euv195_image.data]], $
+             [[euv202_image.data]]]
+
+; Convert from /sr to to image simulation /pixels
+; Convert this to an array (each 
+sim_array = sim_array * (sim_plate_scale / 3600. * !PI/180.) * (sim_plate_scale / 3600. * !PI/180.) ; [erg/cm2/s/pix] -- simulation pixel
+
+; Pass into image_simulator here (need also to pass in sim_plate_scale)
+
+; Loop over im array to congrid each one separately
+im_array = dblarr(SunCET_image_size[0], SunCET_image_size[1], n_elements(sim_array[0, 0, *]))
+FOR i = 0, n_elements(sim_array[0, 0, *]) - 1 DO BEGIN
+  im_array[*, *, i] = congrid(sim_array[*, *, i] * (SunCET_plate_scale/sim_plate_scale)^2., SunCET_image_size[0], SunCET_image_size[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
+ENDFOR
+
+; Merge model images
+; im = aia93_image.data ; [DN/s]
+FOR i = 0, n_elements(im_array[0, 0, *]) - 1 DO BEGIN
+  im_array[*, *, i] = im_array[*, *, i] * (h*c/waves[i]) ; [photons/cm2/s/pix]
+ENDFOR
+
+; Pass to image simulator
+; Fold in all optical effects (wavelength dependent)
+; Then shot noise
+; Then quantum yield (which is also wavelength dependent)
+; Then merge the 5 (total)
+; Then noise again with all other effects
 
 ; get the conversion to photons at the response peak
 ; dumb assumption that all counts originate here
 ; we can do this much smarter, used for illustrative purposes
-resp_peak1 = where(max(resp.a193.ea) eq resp.a193.ea) ; maybe want to use the mean instead of the max across a reasonable range of the response (e.g., FWHM)
-resp_peak2 = where(max(resp.a171.ea) eq resp.a171.ea)
-resp_dn_to_phot_ea1 = resp.a193.ea[resp_peak1[0]]
-resp_dn_to_phot_ea2 = resp.a171.ea[resp_peak2[0]]
+;resp_peak1 = where(max(resp.a193.ea) eq resp.a193.ea) ; maybe want to use the mean instead of the max across a reasonable range of the response (e.g., FWHM)
+;resp_peak2 = where(max(resp.a171.ea) eq resp.a171.ea)
+;resp_dn_to_phot_ea1 = resp.a193.ea[resp_peak1[0]]
+;resp_dn_to_phot_ea2 = resp.a171.ea[resp_peak2[0]]
 
-; image has units dn/s
-; response is cm^2 DN phot^-1 px^-1
-phot_flux_image1 = image1/resp_dn_to_phot_ea1
-phot_flux_image2 = image2/resp_dn_to_phot_ea2
+;phot_flux_image = im/resp_dn_to_phot_ea1 ; aia*_image.data has units dn/s, AIA response is cm^2 DN phot^-1 px^-1
+;phot_flux_image = im ; [photons/cm2/s/sr]
 
 ; boost to make the input image a little more viable
 ; TODO: need to remove this and do the conversion to photons properly!!
-phot_flux_image1 = phot_flux_image1 * (20./0.6)^2  ; Fine tune if DN/s is really low -- this is a geometric scaling ; TODO: check if Meng does flux conservation in what he provides
-phot_flux_image2 = phot_flux_image2 * (20./0.6)^2
-phot_flux_image = phot_flux_image1 + phot_flux_image2 ; [photon cm^-2 s^-1 px^-1] -- SHOULD be anyway... TODO: check
+;phot_flux_image = phot_flux_image * (20./aia_plate_scale)^2  ; Fine tune if DN/s is really low -- this is a geometric scaling ; TODO: check if Meng does flux conservation in what he provide
 
-; TODO: Replace the above with the new model that covers SunCET bandpass
 
-input_image = congrid(phot_flux_image, SunCET_image_size[0], SunCET_image_size[1], cubic=-0.5)
-
-image_simulator, input_image, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-image_simulator, input_image, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+image_simulator, im_array, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+image_simulator, im_array, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
 
 ;
 ; SHDR
