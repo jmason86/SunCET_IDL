@@ -63,6 +63,8 @@ num_binned_pixels = 4D          ; [#] The number of pixels to bin
 sc_readout_bits = 16            ; [bits] Bit depth of readout electronics
 ;sc_bias_mean = 20D             ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
 sc_gain = 1.8                   ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
+sc_detector_size = 1.47         ; [cm2]
+spike_rate = 2100.0             ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
