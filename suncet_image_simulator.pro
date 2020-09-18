@@ -42,25 +42,31 @@
 ;    Detector quantum efficiency, yield, mean dark, read noise, full well, readout # bits, gain
 ;    SHDR compositing (but NOT yet median stack)
 ;  
-;  NOT yet included but planned
+;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation
 ;      SunCET bandpass -- telecon with Meng
 ;      Pixel scale -- telecon with Meng
 ;      
-;    Make quantum yield wavelength dependent
-;    Image stack median
-;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2)
+;    Make quantum yield wavelength dependent (James)
+;    Image stack median (James)
+;     Jitter from exposure to exposure (James)
+;    Image 2x2 binning (James)
+;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
+;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
+;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    
-;    Electron shot noise (Poisson distribution?)
-;    Jitter (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
-;    Diffraction from entrance filter mesh (NOPE)
-;    Shadows from focal plane filter mesh (effect should be removable in post)
-;    Shadowing from focal plane filter mesh
-;    Scattered light
-;    Blooming around saturated pixels (do last pending lab blooming analysis)
+;    Electron shot noise (Poisson distribution?) (Dan)
+;    
+;    Shadows from focal plane filter mesh (effect should be removable in post) (Dan)
+;    Scattered light (Dan)
+;    
 ;    Dead pixels (based on knowledge of our detector)
-;    Loop over time to create movie
+;    Loop over time to create movie (James)
+;    Diffraction from entrance filter mesh (Not going to do)
+
+
+; Question to address: optimization of time -- SNR pushes longer exposure, noise (read and jitter) pushes shorter exposures
 
 
 PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES
