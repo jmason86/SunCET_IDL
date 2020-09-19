@@ -33,6 +33,7 @@
 PRO image_simulator, im_array, $
                      exposure_time_sec=exposure_time_sec, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
+                     no_spikes = no_spikes
 
 ; Input check and defaults
 IF im_array EQ !NULL THEN BEGIN
@@ -42,6 +43,9 @@ ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
+
+no_spikes = keyword_set(no_spikes)
+
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
@@ -64,7 +68,7 @@ sc_readout_bits = 16            ; [bits] Bit depth of readout electronics
 ;sc_bias_mean = 20D             ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
 sc_gain = 1.8                   ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
 sc_detector_size = 1.47         ; [cm2]
-spike_rate = 2100.0             ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
+spike_rate = 21.0               ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
@@ -133,10 +137,34 @@ for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Image_Elec_Shot_
 Image_Elec_Final = floor(Image_Elec + Dark_Final + ReadFrame) ; TODO: consider adding read noise later
 Noise_Final = Dark_Final + ReadFrame ; Useful for getting SNR
 
+
+;;;;;l;;;;;;;;;;;;;;;;;;;;;
+;; Generate Spikes Frame ;;
+;;;;;l;;;;;;;;;;;;;;;;;;;;;
+
+nspikes = sc_detector_size * spike_rate * exposure_time_sec
+
+;; make an array of random numbers
+random_array = randomu(seed, image_size[0], image_size[1])
+
+;; get the index of the [nspikes] lowest valued pixels 
+spike_list = sort(random_array)
+spike_list = spike_list[0: nspikes - 1]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Make the final image ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; Signal/Noise
 Image_SigNoise = Image_Elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
 Image_DN_Final = floor(Image_Elec_Final * sc_gain) < sc_fw  
+
+;; Add spikes to the image
+if ~no_spikes then $
+	Image_DN_Final[spike_list] = sc_fw
+
+
 ; TODO: Sanity check: there should be no counts gt the full well
 
 
