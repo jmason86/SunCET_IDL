@@ -116,7 +116,7 @@ FOR i = 0, num_waves - 1 DO BEGIN
   sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area * exposure_time_sec ; [photons / pixel (per lambda)]
 ENDFOR
 
-; TODO: Consider adding in scattered light psf here, accounting for secondary mirror and spider mounts
+; TODO: Add in scattered light psf here, accounting for secondary mirror and spider mounts
 ; TODO: See what results Alan provides and see if that can be used directly as input
 
 ;; simulate photon generation shot noise by randomizing with poisson distribution
@@ -125,12 +125,10 @@ sc_phot_sn_images = sc_phot_images
 FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
   FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
     FOR i = 0, num_waves - 1 DO BEGIN
-      sc_phot_sn_images[x, y, i] = (RANDOMU(seed, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
+      sc_phot_sn_images[x, y, i] = (randomu(seed, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
     ENDFOR
   ENDFOR
 ENDFOR
-; TODO: sanity check on the Poisson here
-; TODO: sanity check by looking at before and after images
 
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
 sc_phot_sn_image_bandpass_merged = total(sc_phot_sn_images, 3) ; TODO: need to apply weighting when summing
@@ -142,37 +140,36 @@ sc_phot_sn_image_bandpass_merged = total(sc_phot_sn_images, 3) ; TODO: need to a
 ;; simulate base camera performance ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 ;; Generate a bias frame 
 ;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-DarkFrame_Base = RANDOMU(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_mean * exposure_time_sec))
+darkframe_base = randomu(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_mean * exposure_time_sec))
 
 ;; Just for fun, add some crazy pixels
-DarkFrame_HotPix = (Float((randomn(seed, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
-dead_pix = Float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 18) gt 0)
+darkframe_hotpix = (float((randomn(seed, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
+dead_pix = float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 18) gt 0)
 
 ;; Generate a synthetic dark frame with proper exposure 
-DarkFrame = (DarkFrame_Base * dead_pix) + DarkFrame_HotPix
+darkframe = (darkframe_base * dead_pix) + darkframe_hotpix
 
 ;; Synthetic Read Noise
-ReadFrame = RANDOMU(seed, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = sc_read_noise) ; TODO: Results in some negative numbers... is that okay?
+readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise) ; TODO: Results in some negative numbers... is that okay?
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Dark Shot Noise
-Dark_Final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
-for x = 0, sc_image_dimensions[0] - 1 do for y = 0, sc_image_dimensions[1] - 1 do Dark_Final[x, y] = (randomu(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
+dark_final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
+FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
 ;; images in electrons 
-Image_Elec = sc_phot_sn_image_bandpass_merged * sc_qe * sc_qy
-Image_Elec_Shot_Noise = Image_Elec
-for x = 0, sc_image_dimensions[0] - 1 do for y = 0, sc_image_dimensions[1] - 1 do Image_Elec_Shot_Noise[x, y] = (randomu(seed, poisson = (Image_Elec[x, y]) > 1e-8, /DOUBLE) > 0.)
-image_elec = Image_Elec_Shot_Noise + Dark_Final + ReadFrame
-noise_final = Dark_Final + ReadFrame
+image_elec = sc_phot_sn_image_bandpass_merged * sc_qe * sc_qy
+image_elec_shot_noise = image_elec
+FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO image_elec_shot_noise[x, y] = (randomu(seed, poisson = (image_elec[x, y]) > 1e-8, /double) > 0.)
+image_elec = image_elec_shot_noise + dark_final + readframe
+noise_final = dark_final + readframe
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;

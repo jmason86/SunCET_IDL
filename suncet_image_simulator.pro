@@ -40,7 +40,9 @@
 ;    Two mirror coating bounces with mean reflectivity
 ;    Transmission through entrance AND detector filters
 ;    Detector quantum efficiency, yield, mean dark, read noise, full well, readout # bits, gain
-;    SHDR compositing (but NOT yet median stack)
+;    SHDR compositing
+;    Image stack median (James)
+;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
@@ -49,10 +51,8 @@
 ;      Pixel scale -- telecon with Meng
 ;      
 ;    Make quantum yield wavelength dependent (James)
-;    Image stack median (James)
-;     Jitter from exposure to exposure (James)
+;    Jitter from exposure to exposure (James)
 ;    Image 2x2 binning (James)
-;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
 ;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    
@@ -85,20 +85,24 @@ ENDELSE
 
 ; Configuration
 exposure_short = 0.025 ; [sec]
-exposure_long = 3.0 ; [sec]
+exposure_long = 10.0 ; [sec]
+num_short_im_to_stack = 5
+num_long_im_to_stack = 3
+
+; Firm numbers
 SunCET_image_size = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
-num_im_to_stack = 3
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_2*.sav')
 
 ; Prepare image stack
-im_outer_stack = dblarr(SunCET_image_size[0], SunCET_image_SIZE[1], num_im_to_stack)
+bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
+im_outer_stack = dblarr(SunCET_image_size[0], SunCET_image_SIZE[1], bigger_num_to_stack)
 im_mid_stack = im_outer_stack
 im_disk_stack = im_outer_stack
 
 ; Loop through time
-FOR time_index = 0, num_im_to_stack - 1 DO BEGIN
+FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
   restore, files[time_index] ; [erg/cm2/s/sr]
   
   ; Pull out the simulation plate scale and wavelengths
@@ -163,9 +167,9 @@ FOR time_index = 0, num_im_to_stack - 1 DO BEGIN
 ENDFOR ; loop through time 
 
 ; Apply median to image stack to clean up particle hits and other random noise
-im_outer_median = median(im_outer_stack, DIMENSION=3)
-im_mid_median = median(im_mid_stack, DIMENSION=3)
-im_disk_median = median(im_disk_stack, DIMENSION=3)
+im_outer_median = median(im_outer_stack[*, *, 0:num_long_im_to_stack - 1], DIMENSION=3)
+im_mid_median = median(im_mid_stack[*, *, 0:num_long_im_to_stack - 1], DIMENSION=3)
+im_disk_median = median(im_disk_stack[*, *, 0:num_short_im_to_stack - 1], DIMENSION=3)
 
 
 
