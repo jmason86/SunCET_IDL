@@ -46,7 +46,7 @@
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
-;    Get it working with Meng's SunCET optimized MHD simulation
+;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
 ;      SunCET bandpass -- telecon with Meng
 ;      Pixel scale -- telecon with Meng
 ;      
@@ -56,12 +56,12 @@
 ;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    
-;    Electron shot noise (Poisson distribution?) (Dan)
+;    Electron shot noise (Poisson distribution?) (Dan) -- JPM 2020-09-19: I think we already did this
 ;    
 ;    Shadows from focal plane filter mesh (effect should be removable in post) (Dan)
 ;    Scattered light (Dan)
 ;    
-;    Dead pixels (based on knowledge of our detector)
+;    Update dead pixel likeliehood based on knowledge of our detector 
 ;    Loop over time to create movie (James)
 ;    Diffraction from entrance filter mesh (Not going to do)
 
