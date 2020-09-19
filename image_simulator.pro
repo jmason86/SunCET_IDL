@@ -6,14 +6,17 @@
 ;   Take input images and realistically noise them up according to instrument parameters.
 ;
 ; INPUTS:
-;   im_array [dblarr]: The 2D image to generate noise for, stacked into different wavelengths (if applicable) [x, y, lambda]
+;   sim_array [dblarr]:      The 2D simulation images to generate noise for and merge, stacked into different wavelengths (if applicable) [x, y, lambda]
+;                            Intensity units should be [erg/cm2/s/pix], where pix is simulation pixel
+;   sim_plate_scale [float]: The plate scale of the input simulation in arcsec -- i.e., how many arcsecs does a single pixel subtend?
 ;
 ; OPTIONAL INPUTS:
 ;   exposure_time_sec [float]: Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
 ;                              Default is 10 [seconds].
 ;
 ; KEYWORD PARAMETERS:
-;   None
+;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
+;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -29,51 +32,79 @@
 ; EXAMPLE:
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
-
-PRO image_simulator, im_array, $
+PRO image_simulator, sim_array, sim_plate_scale, $
                      exposure_time_sec=exposure_time_sec, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
-                     no_spikes = no_spikes
-
+                     
 ; Input check and defaults
-IF im_array EQ !NULL THEN BEGIN
-  message, /INFO, 'You must supply im_array as a regular input'
+IF sim_array EQ !NULL THEN BEGIN
+  message, /INFO, 'You must supply sim_array as a regular input'
   return
 ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
 
-no_spikes = keyword_set(no_spikes)
-
+; Constants
+h = 6.62606957d-34 ; [Js]
+c = 299792458.d    ; [m/s]
+; c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
-; Grab image dimensions for use throughout code
-image_size = size(im_array, /DIMENSIONS)
+; Simulation parameters
+sim_dimensions = size(sim_array, /DIMENSIONS)
+num_waves = sim_dimensions[2]
+sim_fov_deg = sim_dimensions[0] * (sim_plate_scale / 3600.) ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
+waves = [171, 177, 180, 195, 202]*1e-10 ; [m]
 
 ;
 ; Telescope and detector parameters
 ;
-sc_aperture = 44.9              ; [cm^2]
-sc_reflectivity = 0.223 * 0.223 ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
-sc_transmission = 0.6 * 0.85    ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
-sc_qe = 0.85                    ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
-sc_qy = 18.46                   ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63); TODO: make wavelength dependent
-sc_dark_mean = 1D               ; [e-/px/s] Average Dark Current
-sc_read_noise = 5D              ; [e-] Read noise
-pixel_full_well = 27e3          ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
-num_binned_pixels = 4D          ; [#] The number of pixels to bin
-sc_readout_bits = 16            ; [bits] Bit depth of readout electronics
-;sc_bias_mean = 20D             ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
-sc_gain = 1.8                   ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
-sc_detector_size = 1.47         ; [cm2]
-spike_rate = 21.0               ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
+sc_aperture = 44.9                 ; [cm^2]
+sc_image_dimensions = [1500, 1500] ; [pixels]
+SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
+sc_reflectivity = 0.223 * 0.223    ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
+sc_transmission = 0.6 * 0.85       ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
+sc_qe = 0.85                       ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
+sc_qy = 18.46                      ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63); TODO: make wavelength dependent
+sc_dark_mean = 1D                  ; [e-/px/s] Average Dark Current
+sc_read_noise = 5D                 ; [e-] Read noise
+pixel_full_well = 27e3             ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
+num_binned_pixels = 4D             ; [#] The number of pixels to bin
+sc_readout_bits = 16               ; [bits] Bit depth of readout electronics
+;sc_bias_mean = 20D                ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
+sc_gain = 1.8                      ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
+sc_detector_size = 1.47            ; [cm2]
+sc_plate_scale = 4.8               ; [arcsec/pixel]
+sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
+spike_rate = 21.0                  ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
 sc_eff_area =  sc_aperture * sc_reflectivity * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
+sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
+
+; Extract the instrument FOV from the simulation FOV (i.e., punch a square hole)
+sim_x_deg = jpmrange(-sim_fov_deg, sim_fov_deg, NPTS=sim_dimensions[0])
+fov_indices = where(sim_x_deg GE -SunCET_fov_deg AND sim_x_deg LE SunCET_fov_deg, num_punchout_pixels)
+sim_array_punchout = dblarr(num_punchout_pixels, num_punchout_pixels, n_elements(sim_array[0, 0, *]))
+FOR i = 0, num_waves - 1 DO BEGIN
+  sim_array_punchout[*, *, i] = sim_array[fov_indices[0]:fov_indices[-1], fov_indices[0]:fov_indices[-1], i]
+ENDFOR
+
+; Rescale image from simulation resolution to instrument resolution (the plate scales... how many degress does a single pixel subtend?)
+im_array = dblarr(sc_image_dimensions[0], sc_image_dimensions[1], n_elements(sim_array[0, 0, *]))
+FOR i = 0, num_waves - 1 DO BEGIN
+  im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
+ENDFOR
+
+; Convert from erg to photons
+FOR i = 0, num_waves - 1 DO BEGIN
+  im_array[*, *, i] = im_array[*, *, i] / (h*c/waves[i]) ; [photons/cm2/s/pix]
+ENDFOR
 
 ;
 ; Start creating images
@@ -81,7 +112,7 @@ sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera 
 
 ; Apply effective area and exposure time
 sc_phot_images = im_array
-FOR i = 0, image_size[2] - 1 DO BEGIN
+FOR i = 0, num_waves - 1 DO BEGIN
   sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area * exposure_time_sec ; [photons / pixel (per lambda)]
 ENDFOR
 
@@ -90,11 +121,19 @@ ENDFOR
 
 ;; simulate photon generation shot noise by randomizing with poisson distribution
 ;; use a specific random number seed for repeatability
-sc_phot_sn_image = fltarr(image_size[0], image_size[1])
-for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do sc_phot_sn_image[x, y] = (RANDOMU(seed, poisson = (sc_phot_image[x, y]) > 1e-8, /double) > 0.)
+sc_phot_sn_images = sc_phot_images
+FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
+  FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
+    FOR i = 0, num_waves - 1 DO BEGIN
+      sc_phot_sn_images[x, y, i] = (RANDOMU(seed, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
+    ENDFOR
+  ENDFOR
+ENDFOR
 ; TODO: sanity check on the Poisson here
 ; TODO: sanity check by looking at before and after images
 
+; Merge the separate emission line images according to the SunCET bandpass responsivity
+sc_phot_sn_image_bandpass_merged = total(sc_phot_sn_images, 3) ; TODO: need to apply weighting when summing
 
 ; TODO: sc_qy has to go into the algorithm after this point once we have done photon shot noise
 
@@ -105,64 +144,68 @@ for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do sc_phot_sn_image
 
 
 ;; Generate a bias frame 
-;BiasFrame = RANDOMU(921979L, image_size[0], image_size[1], POISSON = sc_bias_mean)
+;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-DarkFrame_Base = RANDOMU(fixed_seed1, image_size[0], image_size[1], NORMAL = (sc_dark_mean * exposure_time_sec))
+DarkFrame_Base = RANDOMU(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_mean * exposure_time_sec))
 
 ;; Just for fun, add some crazy pixels
-DarkFrame_DeadPix = Float((randomn(fixed_seed2, image_size[0], image_size[1]) * 5 + 18) gt 0)
-DarkFrame_HotPix = (Float((randomn(seed, image_size[0], image_size[1]) * 5 + 15) > 25) - 25) * 10.
+DarkFrame_HotPix = (Float((randomn(seed, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
+dead_pix = Float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 18) gt 0)
 
 ;; Generate a synthetic dark frame with proper exposure 
-;DarkFrame = DarkFrame_Base * DarkFrame_DeadPix + DarkFrame_HotPix ; Removing dead pixels for now
-DarkFrame = DarkFrame_Base + DarkFrame_HotPix
+DarkFrame = (DarkFrame_Base * dead_pix) + DarkFrame_HotPix
 
 ;; Synthetic Read Noise
-ReadFrame = RANDOMU(seed, image_size[0], image_size[1], NORMAL = sc_read_noise)
+ReadFrame = RANDOMU(seed, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = sc_read_noise) ; TODO: Results in some negative numbers... is that okay?
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Dark Shot Noise
-Dark_Final = fltarr(image_size[0], image_size[1])
-; TODO: might not want to use Poisson here, could use a different distribution
-for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Dark_Final[x, y] = (randomn(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
+Dark_Final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
+for x = 0, sc_image_dimensions[0] - 1 do for y = 0, sc_image_dimensions[1] - 1 do Dark_Final[x, y] = (randomu(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
-;; image in electrons 
-Image_Elec = sc_phot_sn_image * sc_qe * sc_qy; * DarkFrame_DeadPix
+;; images in electrons 
+Image_Elec = sc_phot_sn_image_bandpass_merged * sc_qe * sc_qy
 Image_Elec_Shot_Noise = Image_Elec
-for x = 0, image_size[0] - 1 do for y = 0, image_size[1] - 1 do Image_Elec_Shot_Noise[x, y] = (randomn(seed, poisson = (Image_Elec[x, y]) > 1e-8, /DOUBLE) > 0.)
-Image_Elec_Final = floor(Image_Elec + Dark_Final + ReadFrame) ; TODO: consider adding read noise later
-Noise_Final = Dark_Final + ReadFrame ; Useful for getting SNR
+for x = 0, sc_image_dimensions[0] - 1 do for y = 0, sc_image_dimensions[1] - 1 do Image_Elec_Shot_Noise[x, y] = (randomu(seed, poisson = (Image_Elec[x, y]) > 1e-8, /DOUBLE) > 0.)
+image_elec = Image_Elec_Shot_Noise + Dark_Final + ReadFrame
+noise_final = Dark_Final + ReadFrame
 
 
-;;;;;l;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Generate Spikes Frame ;;
-;;;;;l;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 nspikes = sc_detector_size * spike_rate * exposure_time_sec
 
 ;; make an array of random numbers
-random_array = randomu(seed, image_size[0], image_size[1])
+random_array = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1])
 
 ;; get the index of the [nspikes] lowest valued pixels 
 spike_list = sort(random_array)
-spike_list = spike_list[0: nspikes - 1]
+spike_list = spike_list[0: nspikes - 1] ; TODO: This is a single number rather than a list
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Make the final image ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Signal/Noise
-Image_SigNoise = Image_Elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
+image_signoise = image_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
-Image_DN_Final = floor(Image_Elec_Final * sc_gain) < sc_fw  
+image_dn_final = floor(image_elec * sc_gain, /L64) < sc_fw  
 
 ;; Add spikes to the image
-if ~no_spikes then $
-	Image_DN_Final[spike_list] = sc_fw
+IF NOT keyword_set(no_spikes) THEN BEGIN
+	image_dn_final[spike_list] = sc_fw
+ENDIF
+
+; Apply dead pixels (these can't be stimulated by anything)
+IF NOT keyword_set(no_dead_pix) THEN BEGIN
+  image_dn_final *= dead_pix
+ENDIF
 
 
 ; TODO: Sanity check: there should be no counts gt the full well
@@ -172,8 +215,8 @@ if ~no_spikes then $
 
 
 ; Outputs
-output_SNR = Image_SigNoise
-output_image_noise = Noise_Final
-output_image_final = Image_DN_Final
+output_snr = image_signoise
+output_image_noise = noise_final
+output_image_final = image_dn_final
 
 END

@@ -82,48 +82,28 @@ ENDIF ELSE BEGIN
   sub3 = sub1
 ENDELSE
 
-; Constants
-h = 6.62606957d-34 ; [Js]
-c = 299792458.d    ; [m/s]
-aia_plate_scale = 0.6 ; [arcsec/pixel]
-SunCET_plate_scale = 4.8 ; [arcsec/pixel]
-SunCET_pixel_bin = 4 ; number of pixels that go into one spatial resolution element
-SunCET_spatial_resolution = SunCET_plate_scale * SunCET_pixel_bin
+; Configuration
 exposure_short = 0.025 ; [sec]
 exposure_long = 3.0 ; [sec]
-SunCET_image_size = [1500, 1500]
+SunCET_image_size = [1500, 1500] ; [pixels]
+SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 
 ;restore, '/Users/jmason86/Dropbox/Research/Data/AIA/aia_response.sav'
 ;restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/aia_sim/aia_sim_049.sav'
-restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_200.sav'
+restore, '/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_200.sav' ; [erg/cm2/s/sr]
 
 ; Pull out the simulation plate scale and wavelengths
-sim_plate_scale = euv171_image.dx
-waves = [171, 177, 180, 195, 202]*1e-10 ; [m]
+sim_plate_scale = euv171_image.dx  ; [arcsec]
 
 sim_array = [[[euv171_image.data]], $
              [[euv177_image.data]], $
              [[euv180_image.data]], $
              [[euv195_image.data]], $
-             [[euv202_image.data]]]
+             [[euv202_image.data]]]             
+
 
 ; Convert from /sr to to image simulation /pixels
-; Convert this to an array (each 
 sim_array = sim_array * (sim_plate_scale / 3600. * !PI/180.) * (sim_plate_scale / 3600. * !PI/180.) ; [erg/cm2/s/pix] -- simulation pixel
-
-; Pass into image_simulator here (need also to pass in sim_plate_scale)
-
-; Loop over im array to congrid each one separately
-im_array = dblarr(SunCET_image_size[0], SunCET_image_size[1], n_elements(sim_array[0, 0, *]))
-FOR i = 0, n_elements(sim_array[0, 0, *]) - 1 DO BEGIN
-  im_array[*, *, i] = congrid(sim_array[*, *, i] * (SunCET_plate_scale/sim_plate_scale)^2., SunCET_image_size[0], SunCET_image_size[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
-ENDFOR
-
-; Merge model images
-; im = aia93_image.data ; [DN/s]
-FOR i = 0, n_elements(im_array[0, 0, *]) - 1 DO BEGIN
-  im_array[*, *, i] = im_array[*, *, i] * (h*c/waves[i]) ; [photons/cm2/s/pix]
-ENDFOR
 
 ; Pass to image simulator
 ; Fold in all optical effects (wavelength dependent)
@@ -148,8 +128,8 @@ ENDFOR
 ;phot_flux_image = phot_flux_image * (20./aia_plate_scale)^2  ; Fine tune if DN/s is really low -- this is a geometric scaling ; TODO: check if Meng does flux conservation in what he provide
 
 
-image_simulator, im_array, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-image_simulator, im_array, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
 
 ;
 ; SHDR
@@ -170,7 +150,7 @@ y = indgen(SunCET_image_size[1])
 xgrid = x # replicate(1, n_elements(y))
 ygrid = replicate(1, n_elements(x)) # y
 mask1d = where(((xgrid-xcen)^2. + (ygrid-ycen)^2.) LE radius^2.)
-mask2d = array_indices(input_image, mask1d)
+mask2d = array_indices(xgrid, mask1d)
 im_disk = fltarr(SunCET_image_size)
 FOR i = 0, n_elements(mask2d[0, *]) - 1 DO BEGIN
   im_disk[mask2d[0, i], mask2d[1, i]] = image_short[mask2d[0, i], mask2d[1, i]]
@@ -189,6 +169,9 @@ im_outer[bound2 + 1:bound3, *] = image_long[bound2 + 1:bound3, *]
 im_outer /= exposure_long
 im_mid /= exposure_long
 im_disk /= exposure_short
+
+; TODO: 2x2 binning
+
 
 i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', TITLE='No Min Max')
 i2 = image(im_mid^0.2, rgb_table=sub2, /OVERPLOT)
