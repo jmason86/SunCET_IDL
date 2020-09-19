@@ -49,7 +49,7 @@ ENDIF
 ; Constants
 h = 6.62606957d-34 ; [Js]
 c = 299792458.d    ; [m/s]
- c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
+; c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
