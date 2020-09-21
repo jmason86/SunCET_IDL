@@ -46,6 +46,10 @@ IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
 
+; Check keywords (upfront for safety)
+no_spikes = keyword_set(no_spikes)
+no_dead_pix = keyword_set(no_dead_pix)
+
 ; Constants
 h = 6.62606957d-34 ; [Js]
 c = 299792458.d    ; [m/s]
@@ -195,12 +199,12 @@ image_signoise = image_elec/noise_final ; An SNR image! Pretty neat! Can then sm
 image_dn_final = floor(image_elec * sc_gain, /L64) < sc_fw  
 
 ;; Add spikes to the image
-IF NOT keyword_set(no_spikes) THEN BEGIN
+IF NOT no_spikes THEN BEGIN
 	image_dn_final[spike_list] = sc_fw
 ENDIF
 
 ; Apply dead pixels (these can't be stimulated by anything)
-IF NOT keyword_set(no_dead_pix) THEN BEGIN
+IF NOT no_dead_pix THEN BEGIN
   image_dn_final *= dead_pix
 ENDIF
 
