@@ -51,8 +51,8 @@
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
-;      SunCET bandpass -- telecon with Meng
-;      Pixel scale -- telecon with Meng
+;      SunCET bandpass (Dan)
+;      Pixel scale (Dan)
 ;      1 AU correction? 
 ;    
 ;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
