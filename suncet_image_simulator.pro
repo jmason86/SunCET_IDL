@@ -39,9 +39,9 @@
 ;    171 + 193 Å AIA bandpasses (SunCET bandpass coming this week)
 ;    SunCET aperture size
 ;    Two mirror coating bounces with mean reflectivity
-;    Transmission through entrance AND detector filters
+;    Transmission through entrance and detector filters
 ;    Detector quantum efficiency, yield, mean dark, read noise, full well, readout # bits, gain
-;    SHDR compositing
+;    SHDR compositing (James)
 ;    Image stack median (James)
 ;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
 ;    Image 2x2 binning (James)
@@ -55,13 +55,15 @@
 ;      Pixel scale (Dan)
 ;      1 AU correction? 
 ;    
-;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
+;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    
 ;    Electron shot noise (Poisson distribution?) (Dan) -- JPM 2020-09-19: I think we already did this
 ;    
 ;    Shadows from focal plane filter mesh (effect should be removable in post) (Dan)
 ;    Scattered light (Dan)
+;    
+;    Handle the burst data (rapid cadence) (James)
 ;    
 ;    Update dead pixel likeliehood based on knowledge of our detector 
 ;    Loop over time to create movie (James)
@@ -85,11 +87,11 @@ ENDIF ELSE BEGIN
   sub3 = sub1
 ENDELSE
 
-; Configuration
-exposure_short = 0.025 ; [sec]
-exposure_long = 10.0 ; [sec]
-num_short_im_to_stack = 5
-num_long_im_to_stack = 3
+; Configuration (flexible numbers)
+exposure_short = 0.025 ; [sec] Up to 23 seconds
+exposure_long = 10.0 ; [sec] Up to 23 seconds
+num_short_im_to_stack = 5 ; Up to 1 minute when combined with exposure_short
+num_long_im_to_stack = 3 ; Up to 1 minute when combined with exposure_long
 
 ; Firm numbers
 SunCET_image_size = [1500, 1500] ; [pixels]
@@ -98,7 +100,7 @@ binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 sh
 jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
 plate_scale = 4.8 ; [arcsec/pixel]
 
-files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_2*.sav')
+files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_3*.sav')
 
 ; Prepare image stack
 bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
@@ -213,15 +215,17 @@ im_disk_median_binned = congrid(im_disk_median, n_elements(im_disk_median[0, *])
 ;i2 = image((im_mid)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
 ;i3 = image((im_disk)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
 
-i1 = image(alog10(im_outer[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log')
-i2 = image(alog10(im_mid[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
-i3 = image(alog10(im_disk[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
+;i1 = image(alog10(im_outer[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log')
+;i2 = image(alog10(im_mid[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
+;i3 = image(alog10(im_disk[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
 i1 = image(alog10(im_outer_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log, Median Stack')
 i2 = image(alog10(im_mid_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image(alog10(im_disk_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
-
+i1 = image((im_outer_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='^0.2')
+i2 = image((im_mid_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
+i3 = image((im_disk_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
 
 STOP
 kill
