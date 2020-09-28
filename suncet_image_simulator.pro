@@ -165,13 +165,21 @@ FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
   im_disk /= exposure_short
     
   ; Apply jitter between frames
-  jitter_short = randomu(seed, normal=(jitter * exposure_short)) ; [arcsec] TODO: This isn't the right way to randomize this, but the idea is right
-  jitter_long = randomu(seed, normal=(jitter * exposure_long)) ; [arcsec]
+  jitter_short = JPMrandomn(seed, stddev=(jitter * exposure_short)) ; [arcsec]
+  jitter_long = JPMrandomn(seed, stddev=(jitter * exposure_long)) ; [arcsec]
   shift_short = jitter_short / plate_scale ; [pixels] If < 1, then shift() won't move the image, which is what we want
-  shift_long = jitter_long / plate_scale ; [pixels] 
-  im_outer = shift(im_outer, shift_long)
-  im_mid = shift(im_mid, shift_long)
-  im_disk = shift(im_disk, shift_short)
+  shift_long = jitter_long / plate_scale ; [pixels]
+  random_negative = (randomu(seed) LT 0.5) ? 1:-1
+  shift_short_x = randomu(seed) * shift_short
+  shift_short_y = sqrt(shift_short^2. - shift_short_x^2.) * random_negative
+  shift_long_x = randomu(seed) * shift_long
+  shift_long_y = sqrt(shift_long^2. - shift_long_x^2.) * random_negative
+  im_outer = shift(im_outer, shift_long_x, shift_long_y)
+  im_mid = shift(im_mid, shift_long_x, shift_long_y)
+  im_disk = shift(im_disk, shift_short_x, shift_short_y)
+  
+  print, 'short = ' + strmid(shift_short, 2) + ' | long = ' + strmid(shift_long, 2)
+  print, 'long_x = ' + strmid(shift_long_x, 2) + ' | long_y = ' + strmid(shift_long_y, 2) + ' | sanity = ' + strmid(sqrt(shift_long_x^2. + shift_long_y^2.), 2)
   
   ; Add to image stack for median noise reduction
   im_outer_stack[*, *, time_index] = im_outer
