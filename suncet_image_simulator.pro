@@ -44,6 +44,7 @@
 ;    Image stack median (James)
 ;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
 ;    Image 2x2 binning (James)
+;    Jitter from exposure to exposure (James)
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
@@ -53,7 +54,6 @@
 ;      1 AU correction? 
 ;    
 ;    Make quantum yield wavelength dependent (James)
-;    Jitter from exposure to exposure (James)
 ;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    

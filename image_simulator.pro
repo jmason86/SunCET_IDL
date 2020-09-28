@@ -53,7 +53,7 @@ no_dead_pix = keyword_set(no_dead_pix)
 ; Constants
 h = 6.62606957d-34 ; [Js]
 c = 299792458.d    ; [m/s]
-; c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
+;c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
@@ -136,9 +136,6 @@ ENDFOR
 
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
 sc_phot_sn_image_bandpass_merged = total(sc_phot_sn_images, 3) ; TODO: need to apply weighting when summing
-
-; TODO: sc_qy has to go into the algorithm after this point once we have done photon shot noise
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate base camera performance ;;
