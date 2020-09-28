@@ -94,6 +94,8 @@ num_long_im_to_stack = 3
 SunCET_image_size = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
+jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
+plate_scale = 4.8 ; [arcsec/pixel]
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_2*.sav')
 
@@ -161,12 +163,22 @@ FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
   im_outer /= exposure_long
   im_mid /= exposure_long
   im_disk /= exposure_short
+    
+  ; Apply jitter between frames
+  jitter_short = randomu(seed, normal=(jitter * exposure_short)) ; [arcsec] TODO: This isn't the right way to randomize this, but the idea is right
+  jitter_long = randomu(seed, normal=(jitter * exposure_long)) ; [arcsec]
+  shift_short = jitter_short / plate_scale ; [pixels] If < 1, then shift() won't move the image, which is what we want
+  shift_long = jitter_long / plate_scale ; [pixels] 
+  im_outer = shift(im_outer, shift_long)
+  im_mid = shift(im_mid, shift_long)
+  im_disk = shift(im_disk, shift_short)
   
   ; Add to image stack for median noise reduction
   im_outer_stack[*, *, time_index] = im_outer
   im_mid_stack[*, *, time_index] = im_mid
   im_disk_stack[*, *, time_index] = im_disk
 ENDFOR ; loop through time 
+
 
 ; Apply median to image stack to clean up particle hits and other random noise
 im_outer_median = median(im_outer_stack[*, *, 0:num_long_im_to_stack - 1], DIMENSION=3)
