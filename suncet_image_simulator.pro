@@ -14,6 +14,7 @@
 ;
 ; KEYWORD PARAMETERS:
 ;   HIGHLIGHT_SUB_IMAGES: Set to make the sub images clearly distinct
+;   VERBOSE: Set to get console log messages
 ;
 ; OUTPUTS:
 ;   To disk and screen: simulated SunCET images
@@ -70,7 +71,7 @@
 ; Question to address: optimization of time -- SNR pushes longer exposure, noise (read and jitter) pushes shorter exposures
 
 
-PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES
+PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES, VERBOSE=VERBOSE
 kill
 start_time = tic() 
 ; Defaults
@@ -178,13 +179,19 @@ FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
   im_mid = shift(im_mid, shift_long_x, shift_long_y)
   im_disk = shift(im_disk, shift_short_x, shift_short_y)
   
-  print, 'short = ' + strmid(shift_short, 2) + ' | long = ' + strmid(shift_long, 2)
-  print, 'long_x = ' + strmid(shift_long_x, 2) + ' | long_y = ' + strmid(shift_long_y, 2) + ' | sanity = ' + strmid(sqrt(shift_long_x^2. + shift_long_y^2.), 2)
+  IF keyword_set(VERBOSE) THEN BEGIN
+    print, 'short = ' + strmid(shift_short, 2) + ' | long = ' + strmid(shift_long, 2)
+    print, 'long_x = ' + strmid(shift_long_x, 2) + ' | long_y = ' + strmid(shift_long_y, 2) + ' | sanity = ' + strmid(sqrt(shift_long_x^2. + shift_long_y^2.), 2)
+  END
   
   ; Add to image stack for median noise reduction
   im_outer_stack[*, *, time_index] = im_outer
   im_mid_stack[*, *, time_index] = im_mid
   im_disk_stack[*, *, time_index] = im_disk
+  
+  IF keyword_set(VERBOSE) THEN BEGIN
+    message, /INFO, 'Completed ' + strmid(time_index, 2) + '/' + strmid(bigger_num_to_stack, 2) + ' images'
+  ENDIF
 ENDFOR ; loop through time 
 
 
