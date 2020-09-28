@@ -43,16 +43,17 @@
 ;    SHDR compositing
 ;    Image stack median (James)
 ;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
+;    Image 2x2 binning (James)
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
 ;      SunCET bandpass -- telecon with Meng
 ;      Pixel scale -- telecon with Meng
-;      
+;      1 AU correction? 
+;    
 ;    Make quantum yield wavelength dependent (James)
 ;    Jitter from exposure to exposure (James)
-;    Image 2x2 binning (James)
 ;    Blooming around saturated pixels (do last pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
 ;    
@@ -92,6 +93,7 @@ num_long_im_to_stack = 3
 ; Firm numbers
 SunCET_image_size = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
+binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_2*.sav')
 
@@ -171,10 +173,10 @@ im_outer_median = median(im_outer_stack[*, *, 0:num_long_im_to_stack - 1], DIMEN
 im_mid_median = median(im_mid_stack[*, *, 0:num_long_im_to_stack - 1], DIMENSION=3)
 im_disk_median = median(im_disk_stack[*, *, 0:num_short_im_to_stack - 1], DIMENSION=3)
 
-
-
-
-; TODO: 2x2 binning
+; 2x2 binning
+im_outer_median_binned = congrid(im_outer_median, n_elements(im_outer_median[0, *]) / binning, n_elements(im_outer_median[*, 0]) / binning, cubic=-0.5) * binning^2. ; * binning^2 is to preserve counts
+im_mid_median_binned = congrid(im_mid_median, n_elements(im_mid_median[0, *]) / binning, n_elements(im_mid_median[*, 0]) / binning, cubic=-0.5) * binning^2.
+im_disk_median_binned = congrid(im_disk_median, n_elements(im_disk_median[0, *]) / binning, n_elements(im_disk_median[*, 0]) / binning, cubic=-0.5) * binning^2.
 
 ;i1 = image(im_outer^0.2, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='No Min Max')
 ;i2 = image(im_mid^0.2, rgb_table=sub2, /OVERPLOT)
@@ -188,9 +190,9 @@ i1 = image(alog10(im_outer[*, *, 0]), max_value=alog10(4320000.0), min_value=0, 
 i2 = image(alog10(im_mid[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
 i3 = image(alog10(im_disk[*, *, 0]), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
-i1 = image(alog10(im_outer_median), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log, Median Stack')
-i2 = image(alog10(im_mid_median), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
-i3 = image(alog10(im_disk_median), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
+i1 = image(alog10(im_outer_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log, Median Stack')
+i2 = image(alog10(im_mid_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
+i3 = image(alog10(im_disk_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
 
 
 
