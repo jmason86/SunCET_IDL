@@ -207,7 +207,7 @@ spike_list = spike_list[0: nspikes - 1] ; TODO: This is a single number rather t
 ;; Signal/Noise
 image_signoise = signal_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
-image_dn_final = floor(signal_noise_elec * sc_gain, /L64) < sc_fw
+image_dn_final = floor(signal_noise_elec * sc_gain, /L64) < sc_fw ; TODO: Decide whether to do a > 0 as well, are negative DN allowed?
 
 ;; Add spikes to the image
 IF NOT no_spikes THEN BEGIN
