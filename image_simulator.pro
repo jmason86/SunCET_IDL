@@ -53,7 +53,7 @@ no_dead_pix = keyword_set(no_dead_pix)
 ; Constants
 h = 6.62606957d-34 ; [Js]
 c = 299792458.d    ; [m/s]
-;c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
+j2ev = 6.242d18    ; [J/ev] Conversion from Joules to electron volts
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 
@@ -72,7 +72,7 @@ SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV 
 sc_reflectivity = 0.223 * 0.223    ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
 sc_transmission = 0.6 * 0.85       ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
 sc_qe = 0.85                       ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
-sc_qy = 18.46                      ; [e-/phot] This is average and could have it's own shot noise and wavelength dependence -- (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63); TODO: make wavelength dependent
+
 sc_dark_mean = 1D                  ; [e-/px/s] Average Dark Current
 sc_read_noise = 5D                 ; [e-] Read noise
 pixel_full_well = 27e3             ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
@@ -90,6 +90,7 @@ sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well 
 sc_eff_area =  sc_aperture * sc_reflectivity * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
 sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
+sc_qy = (h*c/waves) * j2ev / 3.63                          ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
 
 ; Extract the instrument FOV from the simulation FOV (i.e., punch a square hole)
 sim_x_deg = jpmrange(-sim_fov_deg, sim_fov_deg, NPTS=sim_dimensions[0])
@@ -107,6 +108,7 @@ ENDFOR
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
+  c *= 1e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
   im_array[*, *, i] = im_array[*, *, i] / (h*c/waves[i]) ; [photons/cm2/s/pix]
 ENDFOR
 
@@ -134,9 +136,6 @@ FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
   ENDFOR
 ENDFOR
 
-; Merge the separate emission line images according to the SunCET bandpass responsivity
-sc_phot_sn_image_bandpass_merged = total(sc_phot_sn_images, 3) ; TODO: need to apply weighting when summing
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate base camera performance ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -155,7 +154,7 @@ dead_pix = float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensio
 darkframe = (darkframe_base * dead_pix) + darkframe_hotpix
 
 ;; Synthetic Read Noise
-readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise) ; TODO: Results in some negative numbers... is that okay?
+readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
@@ -165,13 +164,28 @@ readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal
 dark_final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
 FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
-;; images in electrons 
-image_elec = sc_phot_sn_image_bandpass_merged * sc_qe * sc_qy
-image_elec_shot_noise = image_elec
-FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO image_elec_shot_noise[x, y] = (randomu(seed, poisson = (image_elec[x, y]) > 1e-8, /double) > 0.)
-image_elec = image_elec_shot_noise + dark_final + readframe
-noise_final = dark_final + readframe
+;
+; Handle wavelength dependences
+;
 
+; images in electrons
+image_elec = sc_phot_sn_images
+image_elec_shot_noise = image_elec
+FOR i = 0, num_waves - 1 DO BEGIN
+  image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
+  FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
+    FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
+      image_elec_shot_noise[x, y, i] = (randomu(seed, poisson = (image_elec[x, y, i]) > 1e-8, /double) > 0.)
+    ENDFOR
+  ENDFOR
+ENDFOR
+
+; Merge the separate emission line images according to the SunCET bandpass responsivity
+image_elec_shot_noise_bandpass_merged = total(image_elec_shot_noise, 3) ; TODO: need to apply weighting when summing
+
+; Combine signal electrons with noise electrons
+signal_noise_elec = image_elec_shot_noise_bandpass_merged + dark_final + readframe
+noise_final = dark_final + readframe
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Generate Spikes Frame ;;
@@ -191,9 +205,9 @@ spike_list = spike_list[0: nspikes - 1] ; TODO: This is a single number rather t
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Signal/Noise
-image_signoise = image_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
+image_signoise = signal_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
-image_dn_final = floor(image_elec * sc_gain, /L64) < sc_fw  
+image_dn_final = floor(signal_noise_elec * sc_gain, /L64) < sc_fw
 
 ;; Add spikes to the image
 IF NOT no_spikes THEN BEGIN
@@ -205,12 +219,10 @@ IF NOT no_dead_pix THEN BEGIN
   image_dn_final *= dead_pix
 ENDIF
 
-
-; TODO: Sanity check: there should be no counts gt the full well
-
-
-; TODO: Make an Image_DN_per_sec_Final
-
+; Sanity check: there should be no counts gt the full well
+IF max(image_dn_final) GT sc_fw THEN BEGIN
+  message, /INFO, 'Warning: Max value in image (' + JPMPrintNumber(max(image_dn_final)) + ' DN) exceeds full well (' + JPMPrintNumber(sc_fw) + ' DN)' 
+ENDIF
 
 ; Outputs
 output_snr = image_signoise
