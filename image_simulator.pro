@@ -56,11 +56,15 @@ c = 299792458.d    ; [m/s]
 j2ev = 6.242d18    ; [J/ev] Conversion from Joules to electron volts
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
+one_au_cm = 1.496e13 ; [cm] Earth-Sun Distance in cm
+average_rsun_arc = 959.63 ; [arcsec] Average solar radius in arcsecons
+rsun_cm = 6.957e10 ; [cm] solar radius in cm 
 
 ; Simulation parameters
 sim_dimensions = size(sim_array, /DIMENSIONS)
 num_waves = sim_dimensions[2]
 sim_fov_deg = sim_dimensions[0] * (sim_plate_scale / 3600.) ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
+sim_cm2_per_pix = (sim_plate_scale/average_rsun_arc * rsun_cm)^2 ; [cm^2] physical area per simulation pixel 
 waves = [171, 177, 180, 195, 202]*1e-10 ; [m]
 
 ;
@@ -108,9 +112,13 @@ ENDFOR
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
-  c *= 8e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
-  im_array[*, *, i] = im_array[*, *, i] / (h*c/waves[i]) ; [photons/cm2/s/pix]
+;  c *= 8e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
+  im_array[*, *, i] = im_array[*, *, i] / (1e7*h*c/waves[i]) ; [photons/cm2/s/pix] -- 1e7 to convert from J to erg
 ENDFOR
+
+; Convert simulation into pixels observed at Earth
+; sim enters in [photons/cm2/s/pix] and is multiplied by [cm^2 (in simulation) / cm^2 (at earth)]
+im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; photons/cm2/s/pix 
 
 ;
 ; Start creating images
@@ -131,7 +139,7 @@ sc_phot_sn_images = sc_phot_images
 FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
   FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
     FOR i = 0, num_waves - 1 DO BEGIN
-      sc_phot_sn_images[x, y, i] = (randomu(seed, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
+      sc_phot_sn_images[x, y, i] = (randomu(seed1, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
     ENDFOR
   ENDFOR
 ENDFOR
@@ -147,14 +155,14 @@ ENDFOR
 darkframe_base = randomu(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_mean * exposure_time_sec))
 
 ;; Just for fun, add some crazy pixels
-darkframe_hotpix = (float((randomn(seed, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
+darkframe_hotpix = (float((randomn(seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
 dead_pix = float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 18) gt 0)
 
 ;; Generate a synthetic dark frame with proper exposure 
 darkframe = (darkframe_base * dead_pix) + darkframe_hotpix
 
 ;; Synthetic Read Noise
-readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise)
+readframe = randomu(seed3, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
@@ -162,7 +170,7 @@ readframe = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1], normal
 
 ;; Dark Shot Noise
 dark_final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
-FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed, poisson = (darkframe[x, y]) > 1e-8) > 0.)
+FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed4, poisson = (darkframe[x, y]) > 1e-8) > 0.)
 
 ;
 ; Handle wavelength dependences
@@ -175,7 +183,7 @@ FOR i = 0, num_waves - 1 DO BEGIN
   image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
   FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
     FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
-      image_elec_shot_noise[x, y, i] = (randomu(seed, poisson = (image_elec[x, y, i]) > 1e-8, /double) > 0.)
+      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson = (image_elec[x, y, i]) > 1e-8, /double) > 0.)
     ENDFOR
   ENDFOR
 ENDFOR
@@ -194,7 +202,7 @@ noise_final = dark_final + readframe
 nspikes = sc_detector_size * spike_rate * exposure_time_sec
 
 ;; make an array of random numbers
-random_array = randomu(seed, sc_image_dimensions[0], sc_image_dimensions[1])
+random_array = randomu(seed6, sc_image_dimensions[0], sc_image_dimensions[1])
 
 ;; get the index of the [nspikes] lowest valued pixels 
 spike_list = sort(random_array)
