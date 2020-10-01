@@ -113,7 +113,6 @@ ENDFOR
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
-;  c *= 8e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
   im_array[*, *, i] = im_array[*, *, i] / (j2erg*h*c/waves[i]) ; [photons/cm2/s/pix]
 ENDFOR
 
