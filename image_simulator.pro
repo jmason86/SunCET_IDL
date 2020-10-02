@@ -55,6 +55,7 @@ no_psf = keyword_set(no_psf)
 h = 6.62606957d-34 ; [Js]
 c = 299792458.d    ; [m/s]
 j2ev = 6.242d18    ; [J/ev] Conversion from Joules to electron volts
+j2erg = 1e7        ; [J/erg] Conversion from Joules to ergs
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 one_au_cm = 1.496e13 ; [cm] Earth-Sun Distance in cm
@@ -96,7 +97,7 @@ sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well 
 sc_eff_area =  sc_aperture * sc_reflectivity * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
 sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
-sc_qy = (h*c/waves) * j2ev / 3.63                          ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
+sc_qy = (h*c/waves) * j2ev / 3.63                              ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
 
 ; Extract the instrument FOV from the simulation FOV (i.e., punch a square hole)
 sim_x_deg = jpmrange(-sim_fov_deg, sim_fov_deg, NPTS=sim_dimensions[0])
@@ -129,13 +130,12 @@ endif
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
-;  c *= 8e6 ; FIXME: Hack to scale the total intensity to avoid saturation or dim signal
-  im_array[*, *, i] = im_array[*, *, i] / (1e7*h*c/waves[i]) ; [photons/cm2/s/pix] -- 1e7 to convert from J to erg
+  im_array[*, *, i] = im_array[*, *, i] / (j2erg*h*c/waves[i]) ; [photons/cm2/s/pix]
 ENDFOR
 
-; Convert simulation into pixels observed at Earth
+; Convert simulation into pixels observed at Earth, i.e., scale the flux down according to distance from the source
 ; sim enters in [photons/cm2/s/pix] and is multiplied by [cm^2 (in simulation) / cm^2 (at earth)]
-im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; photons/cm2/s/pix 
+im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
 
 ;
 ; Start creating images

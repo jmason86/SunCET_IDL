@@ -49,13 +49,13 @@
 ;    Jitter from exposure to exposure (James)
 ;    Make quantum yield wavelength dependent (James)
 ;    Loop over time to create movie (James)
+;    1 AU scaling (Dan)
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
 ;      SunCET bandpass (Dan)
 ;      Pixel scale (Dan)
-;      1 AU correction? 
 ;    
 ;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
@@ -143,7 +143,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
                  [[euv202_image.data]]]             
     
     ; Convert from /sr to to image simulation /pixels
-    sim_array = sim_array * (sim_plate_scale / 3600. * !PI/180.) * (sim_plate_scale / 3600. * !PI/180.) ; [erg/cm2/s/pix] -- simulation pixel
+    ;sim_array = sim_array * (sim_plate_scale / 3600. * !PI/180.) * (sim_plate_scale / 3600. * !PI/180.) ; [erg/cm2/s/pix] -- simulation pixel
     
     image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
     image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
@@ -178,9 +178,9 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     ; Off disk pixels
     im_outer = im_disk
     im_mid = im_disk
-    im_outer[bound0:bound1, *] = image_long[bound0:bound1, *]
-    im_mid[bound1 + 1:bound2, *] = image_long[bound1 + 1:bound2, *]
-    im_outer[bound2 + 1:bound3, *] = image_long[bound2 + 1:bound3, *]
+    im_outer[bound0:bound1, *] = image_long[bound0:bound1, *] ; left
+    im_mid[bound1:bound2, *] = image_long[bound1:bound2, *] ; middle
+    im_outer[bound2:bound3, *] = image_long[bound2:bound3, *] ; right
     
     ; Normalize by exposure time
     im_outer /= exposure_long
@@ -231,37 +231,28 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   path_filename = ParsePathAndFilename(files_one_integration[time_index - 1])
   save_filename_base = saveloc + strmid(path_filename.filename, 6, 3, /REVERSE_OFFSET) + '_' + strtrim(num_short_im_to_stack, 2) + '_' + JPMPrintNumber(exposure_short) + '_' + strtrim(num_long_im_to_stack, 2) + '_' + JPMPrintNumber(exposure_long) + '_'
   
-  IF movie_index EQ 0 THEN BEGIN
-    i1 = image(alog10(im_outer_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log, Median Stack', BUFFER=MAKE_MOVIE)
-    i2 = image(alog10(im_mid_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub2, /OVERPLOT)
-    i3 = image(alog10(im_disk_median_binned), max_value=alog10(4320000.0), min_value=0, rgb_table=sub3, /OVERPLOT)
-    i1.save, save_filename_base + 'log.png'
+  ; Ensure uniform scaling by defining set minimum and maximums
+  max_log = alog10(4320000.0)
+  min_log = 0
+  max_power = 4320000.0^0.2
+  min_power = 0
+  
+  i1 = image(alog10(im_outer_median_binned), max_value=max_log, min_value=min_log, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='Log, Median Stack', BUFFER=MAKE_MOVIE)
+  i2 = image(alog10(im_mid_median_binned), max_value=max_log, min_value=min_log, rgb_table=sub2, /OVERPLOT)
+  i3 = image(alog10(im_disk_median_binned), max_value=max_log, min_value=min_log, rgb_table=sub3, /OVERPLOT)
+  i1.save, save_filename_base + 'log.png'
 
-    i4 = image((im_outer_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='^0.2', BUFFER=MAKE_MOVIE)
-    i5 = image((im_mid_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub2, /OVERPLOT)
-    i6 = image((im_disk_median_binned)^0.2, max_value=4320000.0^0.2, min_value=0, rgb_table=sub3, /OVERPLOT)
-    i4.save, save_filename_base + 'Power.png'
-    
-    IF keyword_set(MAKE_MOVIE) THEN BEGIN
-      timeInMovie = movie_object_log.Put(vid_stream_log, i1.CopyWindow())
-      timeInMovie = movie_object_power.Put(vid_stream_power, i4.CopyWindow())
-    ENDIF
-  ENDIF ELSE BEGIN
-    i1.SetData, alog10(im_outer_median_binned)
-    i2.SetData, alog10(im_mid_median_binned)
-    i3.SetData, alog10(im_disk_median_binned)
-    i1.save, save_filename_base + 'log.png'
-    
-    i4.SetData, im_outer_median_binned^0.2
-    i5.SetData, im_mid_median_binned^0.2
-    i6.SetData, im_disk_median_binned^0.2
-    i4.save, save_filename_base + 'Power.png'
-    
-    IF keyword_set(MAKE_MOVIE) THEN BEGIN
-      timeInMovie = movie_object_log.Put(vid_stream_log, i1.CopyWindow())
-      timeInMovie = movie_object_power.Put(vid_stream_power, i4.CopyWindow())
-    ENDIF
-  ENDELSE
+  i4 = image((im_outer_median_binned)^0.2, max_value=max_power, min_value=min_power, rgb_table=sub1, dimensions=SunCET_IMAGE_SIZE/binning, margin=0, BACKGROUND_COLOR='black', WINDOW_TITLE='^0.2', BUFFER=MAKE_MOVIE)
+  i5 = image((im_mid_median_binned)^0.2, max_value=max_power, min_value=min_power, rgb_table=sub2, /OVERPLOT)
+  i6 = image((im_disk_median_binned)^0.2, max_value=max_power, min_value=min_power, rgb_table=sub3, /OVERPLOT)
+  i4.save, save_filename_base + 'Power.png'
+  
+  IF keyword_set(MAKE_MOVIE) THEN BEGIN
+    timeInMovie = movie_object_log.Put(vid_stream_log, i1.CopyWindow())
+    timeInMovie = movie_object_power.Put(vid_stream_power, i4.CopyWindow())
+    i1.Close
+    i4.CLose
+  ENDIF
   
   IF keyword_set(VERBOSE) THEN BEGIN
     message, /INFO, JPMsystime() + ' Completed ' + strtrim(movie_index, 2) + '/' + strtrim(last_movie_index, 2) + ' movie steps'
@@ -270,8 +261,6 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
 ENDFOR ; movie_index loop
 
 IF keyword_set(MAKE_MOVIE) THEN BEGIN
-  i1.Close
-  i4.Close
   movie_object_log.Cleanup
   movie_object_power.Cleanup
 ENDIF
