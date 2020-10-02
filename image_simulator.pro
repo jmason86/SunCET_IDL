@@ -90,7 +90,7 @@ sc_detector_size = 1.47            ; [cm2]
 sc_plate_scale = 4.8               ; [arcsec/pixel]
 sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
-psf_80pct_arcsec = 20.              ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
+psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
