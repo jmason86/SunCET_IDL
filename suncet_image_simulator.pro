@@ -50,15 +50,16 @@
 ;    Make quantum yield wavelength dependent (James)
 ;    Loop over time to create movie (James)
 ;    1 AU scaling (Dan)
+;    PSF placeholder until we get input from Alan Hoskins (Dan)
 ;  
 ;  Not yet included but planned (not order of operations, this is priority and order of implementation)
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
-;      SunCET bandpass (Dan)
+;      SunCET bandpass -- derived from DEM that Meng provided (Dan)
 ;      Pixel scale (Dan)
 ;    
 ;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
-;    Jitter within a single exposure time (Dan) + PSF placeholder until we get input from Alan Hoskins (Dan)
+;    Jitter within a single exposure time (Dan) + 
 ;    
 ;    Electron shot noise (Poisson distribution?) (Dan) -- JPM 2020-09-19: I think we already did this
 ;    
@@ -131,7 +132,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   
   ; Loop through time
   FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
-    restore, files_one_integration[time_index] ; [erg/cm2/s/sr]
+    restore, files_one_integration[time_index] ; [erg/cm2/s/pixel] -- simulation pixel
     
     ; Pull out the simulation plate scale and wavelengths
     sim_plate_scale = euv171_image.dx  ; [arcsec]
@@ -140,10 +141,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
                  [[euv177_image.data]], $
                  [[euv180_image.data]], $
                  [[euv195_image.data]], $
-                 [[euv202_image.data]]]             
-    
-    ; Convert from /sr to to image simulation /pixels
-    ;sim_array = sim_array * (sim_plate_scale / 3600. * !PI/180.) * (sim_plate_scale / 3600. * !PI/180.) ; [erg/cm2/s/pix] -- simulation pixel
+                 [[euv202_image.data]]]
     
     image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_short, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
     image_simulator, sim_array, sim_plate_scale, exposure_time_sec = exposure_long, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
@@ -223,9 +221,9 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   im_disk_median = median(im_disk_stack[*, *, 0:num_short_im_to_stack - 1], DIMENSION=3)
   
   ; 2x2 binning
-  im_outer_median_binned = congrid(im_outer_median, n_elements(im_outer_median[0, *]) / binning, n_elements(im_outer_median[*, 0]) / binning, cubic=-0.5) * binning^2. ; * binning^2 is to preserve counts
-  im_mid_median_binned = congrid(im_mid_median, n_elements(im_mid_median[0, *]) / binning, n_elements(im_mid_median[*, 0]) / binning, cubic=-0.5) * binning^2.
-  im_disk_median_binned = congrid(im_disk_median, n_elements(im_disk_median[0, *]) / binning, n_elements(im_disk_median[*, 0]) / binning, cubic=-0.5) * binning^2.
+  im_outer_median_binned = rebin(im_outer_median, n_elements(im_outer_median[0, *]) / binning, n_elements(im_outer_median[*, 0]) / binning) * binning^2. ; * binning^2 is to preserve counts
+  im_mid_median_binned = rebin(im_mid_median, n_elements(im_mid_median[0, *]) / binning, n_elements(im_mid_median[*, 0]) / binning) * binning^2.
+  im_disk_median_binned = rebin(im_disk_median, n_elements(im_disk_median[0, *]) / binning, n_elements(im_disk_median[*, 0]) / binning) * binning^2.
   
   ; Create image composites
   path_filename = ParsePathAndFilename(files_one_integration[time_index - 1])
