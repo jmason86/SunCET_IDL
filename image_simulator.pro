@@ -156,7 +156,7 @@ sc_phot_sn_images = sc_phot_images
 FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
   FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
     FOR i = 0, num_waves - 1 DO BEGIN
-      sc_phot_sn_images[x, y, i] = (randomu(seed1, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)  ; TODO: Why does this always return round numbers? If our poisson mean happened to be < 1, we'd always get 0 returned
+      sc_phot_sn_images[x, y, i] = (randomu(seed1, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)
     ENDFOR
   ENDFOR
 ENDFOR
@@ -200,7 +200,7 @@ FOR i = 0, num_waves - 1 DO BEGIN
   image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
   FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
     FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
-      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson = (image_elec[x, y, i]) > 1e-8, /double) > 0.)
+      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson=(image_elec[x, y, i]) > 1e-8, /double) > 0.)
     ENDFOR
   ENDFOR
 ENDFOR
@@ -223,7 +223,7 @@ random_array = randomu(seed6, sc_image_dimensions[0], sc_image_dimensions[1])
 
 ;; get the index of the [nspikes] lowest valued pixels 
 spike_list = sort(random_array)
-spike_list = spike_list[0: nspikes - 1] ; TODO: This is a single number rather than a list
+spike_list = spike_list[0: nspikes - 1]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Make the final image ;;
