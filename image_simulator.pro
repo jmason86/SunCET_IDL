@@ -34,7 +34,7 @@
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, $
                      exposure_time_sec=exposure_time_sec, $
-                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
 ; Input check and defaults
@@ -49,6 +49,7 @@ ENDIF
 ; Check keywords (upfront for safety)
 no_spikes = keyword_set(no_spikes)
 no_dead_pix = keyword_set(no_dead_pix)
+no_psf = keyword_set(no_psf)
 
 ; Constants
 h = 6.62606957d-34 ; [Js]
@@ -88,6 +89,7 @@ sc_detector_size = 1.47            ; [cm2]
 sc_plate_scale = 4.8               ; [arcsec/pixel]
 sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
+psf_80pct_arcsec = 20.              ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
@@ -109,6 +111,21 @@ im_array = dblarr(sc_image_dimensions[0], sc_image_dimensions[1], n_elements(sim
 FOR i = 0, num_waves - 1 DO BEGIN
   im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
 ENDFOR
+
+; Apply the PSF core model 
+; This probably needs to be updated if we get a stray light model that gives us the PSF wings
+if ~no_psf then begin 
+  psf_80pct_px = psf_80pct_arcsec/sc_plate_scale ; get 80% encircled in pixels
+  psf_sigma = psf_80pct_px/(2 * 1.28155) ; compute sigma required for 80% encircled energy at desired width
+
+  ; compute the PSF -- 99.99% of energy falls within a box 3 times as wide as the 80% level so no need to go wider
+  ; PSF is normalized to preserve total energy
+  psf = gaussian_function( psf_sigma * [1., 1.], /double, /normalize, width = 3 * psf_80pct_px)
+
+  ; convolve the PSF into the image, protect image edges, keep centered to ensure no image translation
+  for i = 0, num_waves - 1 do $
+    im_array[*, *, i] = convol(im_array[*, *, i], psf, /edge_zero, /center)
+endif
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
