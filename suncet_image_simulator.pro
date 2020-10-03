@@ -56,6 +56,7 @@
 ;  TODO:
 ;    Get it working with Meng's SunCET optimized MHD simulation -- JPM 2020-09-19: nearly there but we're totally saturated right now
 ;      SunCET bandpass -- derived from DEM that Meng provided (Dan)
+;      SUVI 195 bandpass -- the Si/Mo coating is our backup so want to be able to get SNR for that as well (Dan) 
 ;      Pixel scale (Dan)
 ;    
 ;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
