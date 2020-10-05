@@ -92,7 +92,7 @@ sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial r
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
 IF WARM_DETECTOR THEN BEGIN
-  sc_dark_current_mean = 20D       ; [e-/px/s] Average Dark Current
+  sc_dark_current_mean = 2000D       ; [e-/px/s] Average Dark Current
 ENDIF ELSE BEGIN
   sc_dark_current_mean = 1D        ; [e-/px/s] Average Dark Current
 ENDELSE
@@ -174,7 +174,7 @@ ENDFOR
 ;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-darkframe_base = randomu(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_current_mean * exposure_time_sec))
+darkframe_base = jpmrandomn(fixed_seed1, d_i=sc_image_dimensions, mean=(sc_dark_current_mean * exposure_time_sec)) ; TODO: define stddev
 
 ;; Just for fun, add some crazy pixels
 darkframe_hotpix = (float((randomn(seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
@@ -184,7 +184,7 @@ dead_pix = float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensio
 darkframe = (darkframe_base * dead_pix) + darkframe_hotpix
 
 ;; Synthetic Read Noise
-readframe = randomu(seed3, sc_image_dimensions[0], sc_image_dimensions[1], normal = sc_read_noise)
+readframe = jpmrandomn(seed3, d_i=sc_image_dimensions, mean=sc_read_noise) ; TODO: define stddev
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
@@ -192,7 +192,7 @@ readframe = randomu(seed3, sc_image_dimensions[0], sc_image_dimensions[1], norma
 
 ;; Dark Shot Noise
 dark_final = fltarr(sc_image_dimensions[0], sc_image_dimensions[1])
-FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed4, poisson = (darkframe[x, y]) > 1e-8) > 0.)
+FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 DO dark_final[x, y] = (randomu(seed4, poisson = (darkframe[x, y]) > 1e-8, /DOUBLE) > 0.)
 
 ;
 ; Handle wavelength dependences
@@ -205,7 +205,7 @@ FOR i = 0, num_waves - 1 DO BEGIN
   image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
   FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
     FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
-      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson=(image_elec[x, y, i]) > 1e-8, /double) > 0.)
+      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson=(image_elec[x, y, i]) > 1e-8, /DOUBLE) > 0.)
     ENDFOR
   ENDFOR
 ENDFOR
