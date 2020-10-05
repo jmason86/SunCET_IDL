@@ -17,6 +17,7 @@
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
 ;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
+;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20. 
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -34,7 +35,7 @@
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, $
                      exposure_time_sec=exposure_time_sec, $
-                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
 ; Input check and defaults
@@ -50,6 +51,7 @@ ENDIF
 no_spikes = keyword_set(no_spikes)
 no_dead_pix = keyword_set(no_dead_pix)
 no_psf = keyword_set(no_psf)
+warm_detector = keyword_set(warm_detector)
 
 ; Constants
 h = 6.62606957d-34 ; [Js]
@@ -78,8 +80,6 @@ SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV 
 sc_reflectivity = 0.223 * 0.223    ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
 sc_transmission = 0.6 * 0.85       ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
 sc_qe = 0.85                       ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
-
-sc_dark_mean = 1D                  ; [e-/px/s] Average Dark Current
 sc_read_noise = 5D                 ; [e-] Read noise
 pixel_full_well = 27e3             ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
 num_binned_pixels = 4D             ; [#] The number of pixels to bin
@@ -91,6 +91,11 @@ sc_plate_scale = 4.8               ; [arcsec/pixel]
 sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
+IF WARM_DETECTOR THEN BEGIN
+  sc_dark_current_mean = 20D       ; [e-/px/s] Average Dark Current
+ENDIF ELSE BEGIN
+  sc_dark_current_mean = 1D        ; [e-/px/s] Average Dark Current
+ENDELSE
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
@@ -169,7 +174,7 @@ ENDFOR
 ;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-darkframe_base = randomu(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_mean * exposure_time_sec))
+darkframe_base = randomu(fixed_seed1, sc_image_dimensions[0], sc_image_dimensions[1], NORMAL = (sc_dark_current_mean * exposure_time_sec))
 
 ;; Just for fun, add some crazy pixels
 darkframe_hotpix = (float((randomn(seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
