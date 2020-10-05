@@ -92,7 +92,7 @@ sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial r
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
 IF WARM_DETECTOR THEN BEGIN
-  sc_dark_current_mean = 2000D       ; [e-/px/s] Average Dark Current
+  sc_dark_current_mean = 20D       ; [e-/px/s] Average Dark Current
 ENDIF ELSE BEGIN
   sc_dark_current_mean = 1D        ; [e-/px/s] Average Dark Current
 ENDELSE
