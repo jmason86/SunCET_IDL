@@ -104,7 +104,7 @@ SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.
 binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
 jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
 plate_scale = 4.8 ; [arcsec/pixel]
-WARM_DETECTOR = 1 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
+WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_3*.sav')
 
@@ -215,7 +215,6 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
       message, /INFO, JPMsystime() + ' Completed ' + strtrim(time_index, 2) + '/' + strtrim(bigger_num_to_stack, 2) + ' images'
     ENDIF
   ENDFOR ; loop through time 
-  
   
   ; Apply median to image stack to clean up particle hits and other random noise
   im_outer_median = median(im_outer_stack[*, *, 0:num_long_im_to_stack - 1], DIMENSION=3)

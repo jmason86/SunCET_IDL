@@ -17,7 +17,8 @@
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
 ;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
-;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20. 
+;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20.
+;   NO_DARK_SUBTRACT: Set this to turn off dark subtraction.
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -35,7 +36,7 @@
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, $
                      exposure_time_sec=exposure_time_sec, $
-                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
 ; Input check and defaults
@@ -48,10 +49,11 @@ IF exposure_time_sec EQ !NULL THEN BEGIN
 ENDIF
 
 ; Check keywords (upfront for safety)
-no_spikes = keyword_set(no_spikes)
-no_dead_pix = keyword_set(no_dead_pix)
-no_psf = keyword_set(no_psf)
-warm_detector = keyword_set(warm_detector)
+no_spikes = keyword_set(NO_SPIKES)
+no_dead_pix = keyword_set(NO_DEAD_PIX)
+no_psf = keyword_set(NO_PSF)
+warm_detector = keyword_set(WARM_DETECTOR)
+no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
 
 ; Constants
 h = 6.62606957d-34 ; [Js]
@@ -174,7 +176,7 @@ ENDFOR
 ;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-darkframe_base = jpmrandomn(fixed_seed1, d_i=sc_image_dimensions, mean=(sc_dark_current_mean * exposure_time_sec)) ; TODO: define stddev
+darkframe_base = (jpmrandomn(fixed_seed1, d_i=sc_image_dimensions, mean=sc_dark_current_mean) * exposure_time_sec) > 0 ; Note: stddev defaults to 1
 
 ;; Just for fun, add some crazy pixels
 darkframe_hotpix = (float((randomn(seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
@@ -184,7 +186,7 @@ dead_pix = float((randomn(fixed_seed2, sc_image_dimensions[0], sc_image_dimensio
 darkframe = (darkframe_base * dead_pix) + darkframe_hotpix
 
 ;; Synthetic Read Noise
-readframe = jpmrandomn(seed3, d_i=sc_image_dimensions, mean=sc_read_noise) ; TODO: define stddev
+readframe = jpmrandomn(seed3, d_i=sc_image_dimensions, mean=0, stddev=sc_read_noise)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate in-camera behavior ;;
@@ -200,22 +202,24 @@ FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 D
 
 ; images in electrons
 image_elec = sc_phot_sn_images
-image_elec_shot_noise = image_elec
 FOR i = 0, num_waves - 1 DO BEGIN
   image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
-  FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
-    FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
-      image_elec_shot_noise[x, y, i] = (randomu(seed5, poisson=(image_elec[x, y, i]) > 1e-8, /DOUBLE) > 0.)
-    ENDFOR
-  ENDFOR
 ENDFOR
 
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
-image_elec_shot_noise_bandpass_merged = total(image_elec_shot_noise, 3) ; TODO: need to apply weighting when summing
+image_elec_bandpass_merged = total(image_elec, 3) ; TODO: need to apply weighting when summing
+
+; Add electron shot noise
+image_elec_shot_noise_bandpass_merged = image_elec_bandpass_merged
+FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
+  FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
+    image_elec_shot_noise_bandpass_merged[x, y] = (randomu(seed5, poisson=(image_elec_bandpass_merged[x, y]) > 1e-8, /DOUBLE) > 0.)
+  ENDFOR
+ENDFOR
 
 ; Combine signal electrons with noise electrons
-signal_noise_elec = image_elec_shot_noise_bandpass_merged + dark_final + readframe
-noise_final = dark_final + readframe
+signal_with_noise_elec = image_elec_shot_noise_bandpass_merged + dark_final + readframe
+noise_final = (dark_final - darkframe_base) + readframe ; Realistic to subtract out the typical dark frame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Generate Spikes Frame ;;
@@ -235,9 +239,9 @@ spike_list = spike_list[0: nspikes - 1]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Signal/Noise
-image_signoise = signal_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
+image_signoise = signal_with_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
-image_dn_final = floor(signal_noise_elec * sc_gain, /L64) < sc_fw ; TODO: Decide whether to do a > 0 as well, are negative DN allowed?
+image_dn_final = floor(signal_with_noise_elec * sc_gain, /L64) < sc_fw ; TODO: Decide whether to do a > 0 as well, are negative DN allowed?
 
 ;; Add spikes to the image
 IF NOT no_spikes THEN BEGIN
@@ -247,6 +251,11 @@ ENDIF
 ; Apply dead pixels (these can't be stimulated by anything)
 IF NOT no_dead_pix THEN BEGIN
   image_dn_final *= dead_pix
+ENDIF
+
+; Handle dark subtraction
+IF NOT no_dark_subtract THEN BEGIN
+  image_dn_final -= (darkframe_base * sc_gain)
 ENDIF
 
 ; Sanity check: there should be no counts gt the full well
