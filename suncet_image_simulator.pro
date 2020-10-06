@@ -10,10 +10,12 @@
 ;   None
 ;
 ; OPTIONAL INPUTS:
-;   None
+;   dark_current [double]: Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
+;                          Overrides /WARM_DETECTOR keyword if both are used. 
 ;
 ; KEYWORD PARAMETERS:
 ;   HIGHLIGHT_SUB_IMAGES: Set to make the sub images clearly distinct
+;   MAKE_SAVESET: Set this to save the components of the SHDR composite as an IDL saveset
 ;   MAKE_MOVIE: Set this to run through all of the images, save them to disk, and create a movie saved to disk
 ;   VERBOSE: Set to get console log messages
 ;
@@ -77,7 +79,8 @@
 ; Question to address: optimization of time -- SNR pushes longer exposure, noise (read and jitter) pushes shorter exposures
 
 
-PRO SunCET_image_simulator, HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES, MAKE_MOVIE=MAKE_MOVIE, VERBOSE=VERBOSE
+PRO SunCET_image_simulator, dark_current=dark_current, $ 
+                            HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES, MAKE_SAVESET=MAKE_SAVESET, MAKE_MOVIE=MAKE_MOVIE, VERBOSE=VERBOSE
 kill
 tic
 
@@ -105,7 +108,7 @@ SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.
 binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
 jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
 plate_scale = 4.8 ; [arcsec/pixel]
-WARM_DETECTOR = 1 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
+WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_3*.sav')
 
@@ -146,8 +149,8 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
                  [[euv195_image.data]], $
                  [[euv202_image.data]]]
     
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
     
     ;
     ; SHDR
@@ -254,6 +257,10 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     i4.CLose
   ENDIF
   
+  IF keyword_set(MAKE_SAVESET) THEN BEGIN
+    save, im_outer_median_binned, im_mid_median_binned, im_disk_median_binned, filename=saveloc+'simulated_images.sav', /COMPRESS
+  ENDIF
+  
   IF keyword_set(VERBOSE) THEN BEGIN
     message, /INFO, JPMsystime() + ' Completed ' + strtrim(movie_index, 2) + '/' + strtrim(last_movie_index, 2) + ' movie steps'
   ENDIF
@@ -266,6 +273,6 @@ IF keyword_set(MAKE_MOVIE) THEN BEGIN
 ENDIF
 
 toc
-STOP
+;STOP
 kill
 END

@@ -13,6 +13,8 @@
 ; OPTIONAL INPUTS:
 ;   exposure_time_sec [float]: Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
 ;                              Default is 10 [seconds].
+;   dark_current [double]:     Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
+;                              Overrides /WARM_DETECTOR keyword if both are used. 
 ;
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
@@ -35,7 +37,7 @@
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, $
-                     exposure_time_sec=exposure_time_sec, $
+                     exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
                      NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
                      output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
@@ -98,6 +100,9 @@ IF WARM_DETECTOR THEN BEGIN
 ENDIF ELSE BEGIN
   sc_dark_current_mean = 1D        ; [e-/px/s] Average Dark Current
 ENDELSE
+IF dark_current NE !NULL THEN BEGIN
+  sc_dark_current_mean = dark_current ; [e-/px/s]
+ENDIF
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
