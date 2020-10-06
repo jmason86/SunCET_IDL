@@ -34,6 +34,7 @@
 ;  What’s included in these images:
 ;    Randomly saturated pixels (spikes)
 ;    Random dark frame (Gaussian distribution)
+;    Dark frame subtraction -- the mean behavior underlying additional shot noise
 ;    Shot noise on the dark frame (Poisson distribution)
 ;    Random read noise (Gaussian distribution)
 ;    Photon shot noise (Poisson distribution)
@@ -104,7 +105,7 @@ SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.
 binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
 jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
 plate_scale = 4.8 ; [arcsec/pixel]
-WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
+WARM_DETECTOR = 1 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 
 files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_3*.sav')
 
