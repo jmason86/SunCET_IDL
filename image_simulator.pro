@@ -26,9 +26,9 @@
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
 ;
 ; OPTIONAL OUTPUTS:
-;   output_SNR [float]:          The signal to noise ratio
-;   output_image_noise [lonarr]: The noise image alone
-;   output_image_final [lonarr]: The image with noise included
+;   output_pure [float]:         The final image in DN with no added noise (i.e. pure model conversion to DN)
+;   output_image_noise [lonarr]: The noise-only component of the image
+;   output_image_final [lonarr]: The simulated image with noise included
 ;
 ; RESTRICTIONS:
 ;   None
@@ -39,7 +39,7 @@
 PRO image_simulator, sim_array, sim_plate_scale, $
                      exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
                      NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
-                     output_SNR=output_SNR, output_image_noise=output_image_noise, output_image_final=output_image_final
+                     output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
 ; Input check and defaults
 IF sim_array EQ !NULL THEN BEGIN
@@ -207,12 +207,15 @@ FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 D
 
 ; images in electrons
 image_elec = sc_phot_sn_images
+image_pure_elec = sc_phot_images
 FOR i = 0, num_waves - 1 DO BEGIN
   image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
+  image_pure_elec[*, *, i] = sc_phot_images[*, *, i] * sc_qe * sc_qy[i]
 ENDFOR
 
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
 image_elec_bandpass_merged = total(image_elec, 3) ; TODO: need to apply weighting when summing
+image_pure_elec_merged = total(image_pure_elec, 3) ; TODO: as above 
 
 ; Add electron shot noise
 image_elec_shot_noise_bandpass_merged = image_elec_bandpass_merged
@@ -243,10 +246,11 @@ spike_list = spike_list[0: nspikes - 1]
 ;; Make the final image ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Signal/Noise
-image_signoise = signal_with_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
+image_dn_final = round(signal_with_noise_elec * sc_gain, /L64) < sc_fw ; TODO: Decide whether to do a > 0 as well, are negative DN allowed?
+image_pure_dn_final = image_pure_elec_merged * sc_gain
 
-image_dn_final = floor(signal_with_noise_elec * sc_gain, /L64) < sc_fw ; TODO: Decide whether to do a > 0 as well, are negative DN allowed?
+;; Signal/Noise
+; image_signoise = signal_with_noise_elec/noise_final ; An SNR image! Pretty neat! Can then smooth and contour map
 
 ;; Add spikes to the image
 IF NOT no_spikes THEN BEGIN
@@ -269,8 +273,8 @@ IF max(image_dn_final) GT sc_fw THEN BEGIN
 ENDIF
 
 ; Outputs
-output_snr = image_signoise
-output_image_noise = noise_final
+output_pure = image_pure_dn_final 
+output_image_noise = noise_final + (image_pure_elec_merged - image_elec_shot_noise_bandpass_merged) * sc_gain
 output_image_final = image_dn_final
 
 END
