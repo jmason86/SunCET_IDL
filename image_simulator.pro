@@ -165,13 +165,13 @@ ENDFOR
 ;; simulate photon generation shot noise by randomizing with poisson distribution
 ;; use a specific random number seed for repeatability
 sc_phot_sn_images = sc_phot_images
-FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
-  FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
-    FOR i = 0, num_waves - 1 DO BEGIN
-      sc_phot_sn_images[x, y, i] = (randomu(seed1, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)
-    ENDFOR
-  ENDFOR
-ENDFOR
+; FOR x = 0, sc_image_dimensions[0] - 1 DO BEGIN
+;   FOR y = 0, sc_image_dimensions[1] - 1 DO BEGIN
+;     FOR i = 0, num_waves - 1 DO BEGIN
+;       sc_phot_sn_images[x, y, i] = (randomu(seed1, poisson = (sc_phot_images[x, y, i]) > 1e-8, /double) > 0.)
+;     ENDFOR
+;   ENDFOR
+; ENDFOR
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; simulate base camera performance ;;
@@ -209,8 +209,8 @@ FOR x = 0, sc_image_dimensions[0] - 1 DO FOR y = 0, sc_image_dimensions[1] - 1 D
 image_elec = sc_phot_sn_images
 image_pure_elec = sc_phot_images
 FOR i = 0, num_waves - 1 DO BEGIN
-  image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i]
-  image_pure_elec[*, *, i] = sc_phot_images[*, *, i] * sc_qe * sc_qy[i]
+  image_elec[*, *, i] = sc_phot_sn_images[*, *, i] * sc_qe * sc_qy[i] 
+  image_pure_elec[*, *, i] = sc_phot_images[*, *, i] * sc_qe * sc_qy[i] 
 ENDFOR
 
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
@@ -274,7 +274,7 @@ ENDIF
 
 ; Outputs
 output_pure = image_pure_dn_final 
-output_image_noise = noise_final + (image_pure_elec_merged - image_elec_shot_noise_bandpass_merged) * sc_gain
+output_image_noise = noise_final + (image_pure_elec_merged - image_elec_shot_noise_bandpass_merged)
 output_image_final = image_dn_final
 
 END
