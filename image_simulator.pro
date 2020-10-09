@@ -97,11 +97,16 @@ spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of wo
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
 IF WARM_DETECTOR THEN BEGIN
   sc_dark_current_mean = 20D       ; [e-/px/s] Average Dark Current
+  sc_dark_current_stddev = 12D     ; [e-/px/s] Dark current standard deviation (DSNU in spec sheet)
 ENDIF ELSE BEGIN
   sc_dark_current_mean = 1D        ; [e-/px/s] Average Dark Current
+  sc_dark_current_stddev = 0.6D    ; [e-/px/s] Dark current standard deviation (DSNU in spec sheet)
 ENDELSE
 IF dark_current NE !NULL THEN BEGIN
   sc_dark_current_mean = dark_current ; [e-/px/s]
+  calculated_temperature = alog2(dark_current/20.) * 5.5 + 20.
+  message, /INFO, 'The input dark current of ' + JPMPrintNumber(sc_dark_current_mean) + ' e-/px/s corresponds to a temperature of ' + JPMPrintNumber(calculated_temperature) + ' ºC'
+  sc_dark_current_stddev = 12. * 2.^((calculated_temperature - 20.) / 5.5) ; [e-/px/s] Dark current standard deviation (DSNU in spec sheet)
 ENDIF
 
 ; Telescope/detector calculations
@@ -181,7 +186,7 @@ sc_phot_sn_images = sc_phot_images
 ;BiasFrame = RANDOMU(921979L, sc_image_dimensions[0], sc_image_dimensions[1], POISSON = sc_bias_mean)
 
 ;; Generate a dark frame
-darkframe_base = (jpmrandomn(fixed_seed1, d_i=sc_image_dimensions, mean=sc_dark_current_mean) * exposure_time_sec) > 0 ; Note: stddev defaults to 1
+darkframe_base = (jpmrandomn(fixed_seed1, d_i=sc_image_dimensions, mean=sc_dark_current_mean, stddev=sc_dark_current_stddev) * exposure_time_sec) > 0 ; Note: stddev defaults to 1
 
 ;; Just for fun, add some crazy pixels
 darkframe_hotpix = (float((randomn(seed2, sc_image_dimensions[0], sc_image_dimensions[1]) * 5 + 15) > 25) - 25) * 10.
