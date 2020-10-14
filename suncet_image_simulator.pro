@@ -63,7 +63,7 @@
 ;      Pixel scale (Dan)
 ;    
 ;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
-;    Jitter within a single exposure time (Dan) + 
+;    Jitter within a single exposure time (Dan)
 ;    
 ;    Electron shot noise (Poisson distribution?) (Dan) -- JPM 2020-09-19: I think we already did this
 ;    

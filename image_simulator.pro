@@ -167,6 +167,8 @@ ENDFOR
 ; TODO: Add in scattered light psf here, accounting for secondary mirror and spider mounts
 ; TODO: See what results Alan provides and see if that can be used directly as input
 
+; TODO: Why is the below photon shot noise code commented out?
+
 ;; simulate photon generation shot noise by randomizing with poisson distribution
 ;; use a specific random number seed for repeatability
 sc_phot_sn_images = sc_phot_images
