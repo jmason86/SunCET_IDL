@@ -33,7 +33,7 @@ PRO SuncetDetectorBloomingFromCsol
 kill
 ; Defaults
 dataloc = '/Users/jmason86/Dropbox/minxss_dropbox/rocket_eve_docs/36.336/TM_Data/Flight/CSOL_SDcard/'
-saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/Detector Blooming/'
+saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/Blooming/'
 slice_column = 75
 top_non_bloom_row = 696
 blooming_extent_check_row = 780
@@ -69,7 +69,6 @@ p3 = plot(slice_no_background / max(slice_no_background) * 100, 'tomato', THICK=
           YTITLE='intensity normalized to peak with background subtracted [%]', $
           XTITLE='row index')
 
-
 ; Find knee in the slice
 slice = float(im[slice_column, top_non_bloom_row:blooming_extent_check_row]) ; No 10 pixel addition
 slice -= background
@@ -90,7 +89,14 @@ print, 'Blooming range = ' + jpmprintnumber(blooming_range_arcsec) + '"'
 print, 'Blooming range = ' + jpmprintnumber(blooming_range_deg, NUMBER_OF_DECIMALS=3) + 'º'
 print, 'Blooming range = ' + jpmprintnumber(blooming_range_Rs) + ' Rs'
 
+p4 = plot(slice_no_background[6:40] / max(slice_no_background) * 100, thick=3, font_size=16, $
+          title='CIS115 Detector Blooming', $
+          ytitle='normalized intensity [%]', $
+          xtitle='distance from saturated pixel [pixels]')        
+p4.save, saveloc + 'cis115_blooming.png'
 
+
+STOP
 ; Look at all the slices 
 knee_extents = intarr(1999)
 
