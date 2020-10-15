@@ -34,17 +34,15 @@
 ;-
 
 ;  What’s included in these images:
-;    Randomly saturated pixels (spikes)
 ;    Random dark frame (Gaussian distribution)
 ;    Dark frame subtraction -- the mean behavior underlying additional shot noise
 ;    Shot noise on the dark frame (Poisson distribution)
 ;    Random read noise (Gaussian distribution)
 ;    Photon shot noise (Poisson distribution)
-;    171 + 193 Å AIA bandpasses (SunCET bandpass coming this week)
 ;    SunCET aperture size
 ;    Two mirror coating bounces with mean reflectivity
 ;    Transmission through entrance and detector filters
-;    Detector quantum efficiency, yield, mean dark, read noise, full well, readout # bits, gain
+;    Detector quantum efficiency, yield, full well, readout # bits, gain
 ;    SHDR compositing (James)
 ;    Image stack median (James)
 ;    Spikes based on actuals from PROBA2/SWAP (or whatever.. just need streaks: 2100 spikes/second/cm2) (Dan)
@@ -64,8 +62,6 @@
 ;    
 ;    Blooming around saturated pixels (do pending lab blooming analysis) (James)
 ;    Jitter within a single exposure time (Dan)
-;    
-;    Electron shot noise (Poisson distribution?) (Dan) -- JPM 2020-09-19: I think we already did this
 ;    
 ;    Shadows from focal plane filter mesh (effect should be removable in post) (Dan)
 ;    Scattered light (Dan)
