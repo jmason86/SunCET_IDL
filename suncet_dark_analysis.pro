@@ -32,7 +32,7 @@ kill
 dataloc = getenv('SunCET_dark_data_phase_a')
 saveloc = getenv('SunCET_dark_analysis')
 
-file = '-10 C/2 second/FrameData_20201007_233651147.hex'
+file = '-10 C/10 second/FrameData_20201007_235500184.hex'
 path_filename = dataloc + file
 
 ; Short exposures could only read out smaller frames, so figure out the right nrows, ncols
@@ -50,8 +50,12 @@ ENDELSE
 ; Load data
 im = SunCET_read_detector_hex(path_filename, nrows=nrows, ncols=ncols)
 
+; Remove bias
+im_no_bias = im - 4400L
+
 ; Display image
 i1 = image(im, min_value=3000L, max_value=7000L)
 i1.save, saveloc + str_replace(file, '/', '_', /GLOBAL) + '.png'
 
+STOP
 END
