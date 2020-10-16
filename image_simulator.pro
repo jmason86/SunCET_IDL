@@ -24,6 +24,8 @@
 ;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20.
 ;   NO_DARK_SUBTRACT: Set this to turn off dark subtraction.
 ;   SUVI_MIRROR: Use SUVI reflectivity instead of default broadband
+;   MODEL_PSF: Use modeled PSF instead of ray-trace PSF files
+;   NO_PSF: Do not simulate the PSF
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -43,7 +45,7 @@ PRO image_simulator, sim_array, sim_plate_scale, waves, $
                      exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
                      NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
                      output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final, $
-                     missing_line_scale_factor = missing_line_scale_factor, suvi_mirror = suvi_mirror
+                     missing_line_scale_factor = missing_line_scale_factor, suvi_mirror = suvi_mirror, model_psf = model_psf
                      
 ; Input check and defaults
 IF sim_array EQ !NULL THEN BEGIN
@@ -55,11 +57,15 @@ IF exposure_time_sec EQ !NULL THEN BEGIN
 ENDIF
 
 ; set up environment variable
-reflectivity_path = getenv('SunCETRefl')
+base_path = getenv('SunCET_base')
+reflectivity_path = base_path + 'Mirror_Data/'
+psf_path = base_path + 'PSF_Data/'
+
 
 ; Check keywords (upfront for safety)
 no_spikes = keyword_set(NO_SPIKES)
 no_dead_pix = keyword_set(NO_DEAD_PIX)
+model_psf = keyword_set(MODEL_PSF)
 no_psf = keyword_set(NO_PSF)
 warm_detector = keyword_set(WARM_DETECTOR)
 no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
@@ -152,20 +158,53 @@ FOR i = 0, num_waves - 1 DO BEGIN
   im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
 ENDFOR
 
-; Apply the PSF core model 
-; This probably needs to be updated if we get a stray light model that gives us the PSF wings
+; Apply the PSF
 if ~no_psf then begin 
-  psf_80pct_px = psf_80pct_arcsec/sc_plate_scale ; get 80% encircled in pixels
-  psf_sigma = psf_80pct_px/(2 * 1.28155) ; compute sigma required for 80% encircled energy at desired width
+   if model_psf then begin 
 
-  ; compute the PSF -- 99.99% of energy falls within a box 3 times as wide as the 80% level so no need to go wider
-  ; PSF is normalized to preserve total energy
-  psf = gaussian_function( psf_sigma * [1., 1.], /double, /normalize, width = 3 * psf_80pct_px)
+    psf_80pct_px = psf_80pct_arcsec/sc_plate_scale ; get 80% encircled in pixels
+    psf_sigma = psf_80pct_px/(2 * 1.28155) ; compute sigma required for 80% encircled energy at desired width
 
-  ; convolve the PSF into the image, protect image edges, keep centered to ensure no image translation
-  for i = 0, num_waves - 1 do $
-    im_array[*, *, i] = convol(im_array[*, *, i], psf, /edge_zero, /center)
-endif
+    ; compute the PSF -- 99.99% of energy falls within a box 3 times as wide as the 80% level so no need to go wider
+    ; PSF is normalized to preserve total energy
+    psf = gaussian_function( psf_sigma * [1., 1.], /double, /normalize, width = 3 * psf_80pct_px)
+
+    ; convolve the PSF into the image, protect image edges, keep centered to ensure no image translation
+    for i = 0, num_waves - 1 do $
+      im_array[*, *, i] = convol(im_array[*, *, i], psf, /edge_zero, /center)
+  endif else begin 
+    ; read the CSV and convert to something usable
+    raw_data = rd_tfile(psf_path + '/SunCet_PSF_0SolarRad_s3.0A_185A_Normalized.csv')
+;    raw_data = rd_tfile(psf_path + '/SunCet_PSF_0SolarRad_s6.8A_185A_Normalized.csv')
+    data_str = strsplit(raw_data, ',', /extract)
+    psf = fltarr(n_elements(data_str[0]), n_elements(data_str))
+    for n = 0, n_elements(data_str) - 1 do $
+      psf[*, n] = data_str[n]
+
+    ; need to normalize to ensure proper photon accounting
+    psf_norm = psf/total(psf)
+    psf_norm = psf_norm[2:-3, 2:-3]
+
+    ; padding to avoid edge effects 
+    psf_cent = floor(sc_image_dimensions[0]/2)
+    psf_pad = dblarr(sc_image_dimensions[0] * 2, sc_image_dimensions[1] * 2)
+    psf_pad(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *) = psf_norm
+    psf_pad = shift(psf_pad, psf_cent * [-1, 1]) ; shift PSF for correct FFT result
+    psf_hat = fft(psf_pad, 1)                    ; compute FFT'ed psf for convolution
+
+    ;;; pad the image and do the convolution
+    for i = 0, num_waves - 1 do begin 
+      image_pad = dblarr(sc_image_dimensions[0] * 2, sc_image_dimensions[0] * 2)
+      image_pad(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *) = im_array[*, *, i]
+      image_hat = fft(image_pad, 1)
+
+      image_convol = real_part(fft(image_hat * psf_hat, -1)) ; Deconvolve and apply inverse FFT
+      image_convol = image_convol(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *)   ; Remove padding
+
+      im_array[*, *, i] = shift_img(image_convol, [0.5, 0.5]) ; psf isn't quite centered so do a 0.5 px shift to recenter
+    endfor 
+  endelse 
+endif 
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
