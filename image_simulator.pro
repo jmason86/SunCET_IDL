@@ -23,6 +23,7 @@
 ;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
 ;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20.
 ;   NO_DARK_SUBTRACT: Set this to turn off dark subtraction.
+;   SUVI_MIRROR: Use SUVI reflectivity instead of default broadband
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -42,7 +43,7 @@ PRO image_simulator, sim_array, sim_plate_scale, waves, $
                      exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
                      NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
                      output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final, $
-                     missing_line_scale_factor = missing_line_scale_factor
+                     missing_line_scale_factor = missing_line_scale_factor, suvi_mirror = suvi_mirror
                      
 ; Input check and defaults
 IF sim_array EQ !NULL THEN BEGIN
@@ -62,6 +63,7 @@ no_dead_pix = keyword_set(NO_DEAD_PIX)
 no_psf = keyword_set(NO_PSF)
 warm_detector = keyword_set(WARM_DETECTOR)
 no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
+suvi_mirror = keyword_set(SUVI_MIRROR)
 
 ; Constants
 h = 6.62606957d-34 ; [Js]
@@ -116,10 +118,17 @@ IF dark_current NE !NULL THEN BEGIN
 ENDIF
 
 ;; load and interpolate mirror reflectivity data
-text_lines = rd_tfile(reflectivity_path + '/XRO47864_TH=5.0.txt', nocomment = '#')
-data_str = strsplit(text_lines, /extract)
-r_wave = float( (data_str.ToArray())[*, 0] ) * 10. ; [Angstrom] refelctivity wavelengths
-reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+if ~suvi_mirror then begin 
+  text_lines = rd_tfile(reflectivity_path + '/XRO47864_TH=5.0.txt', nocomment = '#')
+  data_str = strsplit(text_lines, /extract)
+  r_wave = float( (data_str.ToArray())[*, 0] ) * 10. ; [Angstrom] refelctivity wavelengths
+  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+endif else begin
+  text_lines = rd_tfile(reflectivity_path + '/suvi_195.csv', nocomment = ';')
+  data_str = strsplit(text_lines, ',', /extract)
+  r_wave = float( (data_str.ToArray())[*, 0] ) ; [Angstrom] refelctivity wavelengths
+  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+endelse 
 sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths
 
 ; Telescope/detector calculations

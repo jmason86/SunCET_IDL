@@ -34,7 +34,8 @@ for i=0,MM-1 do begin
                                     'Fe XII 193.509', $ ; 6
                                     'Fe XII 195.119', $ ; 7
                                     'Fe XIII 202.044', $ ; 8 (probably out of band for primary coating)
-                                    'Fe XIII 203.827'] ; 9 (probably out of band for primary coating)
+                                    'Fe XIII 203.827', $ ; 9 (probably out of band for primary coating)
+                                    'Fe XIV 211.317'] ; 10
 
 
 ;;;; the line list above needs to be udpated for hot lines if it is possible to include them ;;;;
