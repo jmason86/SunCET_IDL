@@ -145,8 +145,8 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
                  [[euv195_image.data]], $
                  [[euv202_image.data]]]
     
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_SNR=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_SNR=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
     
     ;
     ; SHDR
@@ -154,8 +154,8 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     
     ; Disk bounds in pixels
     bound0 = 0    ; start pixel
-    bound1 = 500  ; pixels in to solar limb
-    bound2 = 1000  ; pixels in to opposite solar limb
+    bound1 = 553  ; pixels in to solar limb (really to 1.05 Rs)
+    bound2 = 947  ; pixels in to opposite solar limb (really to 1.05 Rs opposite side)
     bound3 = 1499 ; final pixel
     
     ; Disk pixels (circle)
@@ -269,6 +269,6 @@ IF keyword_set(MAKE_MOVIE) THEN BEGIN
 ENDIF
 
 toc
-;STOP
+STOP
 kill
 END
