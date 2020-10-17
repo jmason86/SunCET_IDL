@@ -9,18 +9,23 @@
 ;   sim_array [dblarr]:      The 2D simulation images to generate noise for and merge, stacked into different wavelengths (if applicable) [x, y, lambda]
 ;                            Intensity units should be [erg/cm2/s/pix], where pix is simulation pixel
 ;   sim_plate_scale [float]: The plate scale of the input simulation in arcsec -- i.e., how many arcsecs does a single pixel subtend?
-;
+;   waves [fltarr]:          Array with wavelengths (in Angstroms) of each individual image in sim_array
+; 
 ; OPTIONAL INPUTS:
 ;   exposure_time_sec [float]: Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
 ;                              Default is 10 [seconds].
 ;   dark_current [double]:     Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
 ;                              Overrides /WARM_DETECTOR keyword if both are used. 
+;   MISSING_LINE_SCALE_FACTOR: Set this to a value to use to scale data up to account for weak non-modeled lines
 ;
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
 ;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
 ;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20.
 ;   NO_DARK_SUBTRACT: Set this to turn off dark subtraction.
+;   SUVI_MIRROR: Use SUVI reflectivity instead of default broadband
+;   MODEL_PSF: Use modeled PSF instead of ray-trace PSF files
+;   NO_PSF: Do not simulate the PSF
 ;
 ; OUTPUTS:
 ;   Multiple, which means have to use IDL's bad syntax for this situation using optional outputs
@@ -36,10 +41,11 @@
 ; EXAMPLE:
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
-PRO image_simulator, sim_array, sim_plate_scale, $
+PRO image_simulator, sim_array, sim_plate_scale, waves, $
                      exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
                      NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
-                     output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final
+                     output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final, $
+                     missing_line_scale_factor = missing_line_scale_factor, suvi_mirror = suvi_mirror, model_psf = model_psf
                      
 ; Input check and defaults
 IF sim_array EQ !NULL THEN BEGIN
@@ -50,12 +56,20 @@ IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
 
+; set up environment variable
+base_path = getenv('SunCET_base')
+reflectivity_path = base_path + 'Mirror_Data/'
+psf_path = base_path + 'PSF_Data/'
+
+
 ; Check keywords (upfront for safety)
 no_spikes = keyword_set(NO_SPIKES)
 no_dead_pix = keyword_set(NO_DEAD_PIX)
+model_psf = keyword_set(MODEL_PSF)
 no_psf = keyword_set(NO_PSF)
 warm_detector = keyword_set(WARM_DETECTOR)
 no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
+suvi_mirror = keyword_set(SUVI_MIRROR)
 
 ; Constants
 h = 6.62606957d-34 ; [Js]
@@ -73,7 +87,7 @@ sim_dimensions = size(sim_array, /DIMENSIONS)
 num_waves = sim_dimensions[2]
 sim_fov_deg = sim_dimensions[0] * (sim_plate_scale / 3600.) ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 sim_cm2_per_pix = (sim_plate_scale/average_rsun_arc * rsun_cm)^2 ; [cm^2] physical area per simulation pixel 
-waves = [171, 177, 180, 195, 202]*1e-10 ; [m]
+if ~keyword_set(missing_line_scale_factor) then  missing_line_scale_factor = 1.3 ; empirical scale factor to account for contributions from unmodeled minor lines 
 
 ;
 ; Telescope and detector parameters
@@ -109,9 +123,23 @@ IF dark_current NE !NULL THEN BEGIN
   sc_dark_current_stddev = 12. * 2.^((calculated_temperature - 20.) / 5.5) ; [e-/px/s] Dark current standard deviation (DSNU in spec sheet)
 ENDIF
 
+;; load and interpolate mirror reflectivity data
+if ~suvi_mirror then begin 
+  text_lines = rd_tfile(reflectivity_path + '/XRO47864_TH=5.0.txt', nocomment = '#')
+  data_str = strsplit(text_lines, /extract)
+  r_wave = float( (data_str.ToArray())[*, 0] ) * 10. ; [Angstrom] refelctivity wavelengths
+  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+endif else begin
+  text_lines = rd_tfile(reflectivity_path + '/suvi_195.csv', nocomment = ';')
+  data_str = strsplit(text_lines, ',', /extract)
+  r_wave = float( (data_str.ToArray())[*, 0] ) ; [Angstrom] refelctivity wavelengths
+  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+endelse 
+sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths
+
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
-sc_eff_area =  sc_aperture * sc_reflectivity * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
+sc_eff_area =  sc_aperture * sc_reflectivity_wvl^2. * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
 sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
 sc_qy = (h*c/waves) * j2ev / 3.63                              ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
@@ -130,20 +158,53 @@ FOR i = 0, num_waves - 1 DO BEGIN
   im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
 ENDFOR
 
-; Apply the PSF core model 
-; This probably needs to be updated if we get a stray light model that gives us the PSF wings
+; Apply the PSF
 if ~no_psf then begin 
-  psf_80pct_px = psf_80pct_arcsec/sc_plate_scale ; get 80% encircled in pixels
-  psf_sigma = psf_80pct_px/(2 * 1.28155) ; compute sigma required for 80% encircled energy at desired width
+   if model_psf then begin 
 
-  ; compute the PSF -- 99.99% of energy falls within a box 3 times as wide as the 80% level so no need to go wider
-  ; PSF is normalized to preserve total energy
-  psf = gaussian_function( psf_sigma * [1., 1.], /double, /normalize, width = 3 * psf_80pct_px)
+    psf_80pct_px = psf_80pct_arcsec/sc_plate_scale ; get 80% encircled in pixels
+    psf_sigma = psf_80pct_px/(2 * 1.28155) ; compute sigma required for 80% encircled energy at desired width
 
-  ; convolve the PSF into the image, protect image edges, keep centered to ensure no image translation
-  for i = 0, num_waves - 1 do $
-    im_array[*, *, i] = convol(im_array[*, *, i], psf, /edge_zero, /center)
-endif
+    ; compute the PSF -- 99.99% of energy falls within a box 3 times as wide as the 80% level so no need to go wider
+    ; PSF is normalized to preserve total energy
+    psf = gaussian_function( psf_sigma * [1., 1.], /double, /normalize, width = 3 * psf_80pct_px)
+
+    ; convolve the PSF into the image, protect image edges, keep centered to ensure no image translation
+    for i = 0, num_waves - 1 do $
+      im_array[*, *, i] = convol(im_array[*, *, i], psf, /edge_zero, /center)
+  endif else begin 
+    ; read the CSV and convert to something usable
+    raw_data = rd_tfile(psf_path + '/SunCet_PSF_0SolarRad_s3.0A_185A_Normalized.csv')
+;    raw_data = rd_tfile(psf_path + '/SunCet_PSF_0SolarRad_s6.8A_185A_Normalized.csv')
+    data_str = strsplit(raw_data, ',', /extract)
+    psf = fltarr(n_elements(data_str[0]), n_elements(data_str))
+    for n = 0, n_elements(data_str) - 1 do $
+      psf[*, n] = data_str[n]
+
+    ; need to normalize to ensure proper photon accounting
+    psf_norm = psf/total(psf)
+    psf_norm = psf_norm[2:-3, 2:-3]
+
+    ; padding to avoid edge effects 
+    psf_cent = floor(sc_image_dimensions[0]/2)
+    psf_pad = dblarr(sc_image_dimensions[0] * 2, sc_image_dimensions[1] * 2)
+    psf_pad(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *) = psf_norm
+    psf_pad = shift(psf_pad, psf_cent * [-1, 1]) ; shift PSF for correct FFT result
+    psf_hat = fft(psf_pad, 1)                    ; compute FFT'ed psf for convolution
+
+    ;;; pad the image and do the convolution
+    for i = 0, num_waves - 1 do begin 
+      image_pad = dblarr(sc_image_dimensions[0] * 2, sc_image_dimensions[0] * 2)
+      image_pad(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *) = im_array[*, *, i]
+      image_hat = fft(image_pad, 1)
+
+      image_convol = real_part(fft(image_hat * psf_hat, -1)) ; Deconvolve and apply inverse FFT
+      image_convol = image_convol(0: sc_image_dimensions[0] - 1, sc_image_dimensions[1]: *)   ; Remove padding
+
+      im_array[*, *, i] = shift_img(image_convol, [0.5, 0.5]) ; psf isn't quite centered so do a 0.5 px shift to recenter
+    endfor 
+  endelse 
+endif 
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
@@ -161,7 +222,7 @@ im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
 ; Apply effective area and exposure time
 sc_phot_images = im_array
 FOR i = 0, num_waves - 1 DO BEGIN
-  sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area * exposure_time_sec ; [photons / pixel (per lambda)]
+  sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area[i] * exposure_time_sec ; [photons / pixel (per lambda)]
 ENDFOR
 
 ; TODO: Add in scattered light psf here, accounting for secondary mirror and spider mounts
@@ -223,6 +284,10 @@ ENDFOR
 ; Merge the separate emission line images according to the SunCET bandpass responsivity
 image_elec_bandpass_merged = total(image_elec, 3) ; TODO: need to apply weighting when summing
 image_pure_elec_merged = total(image_pure_elec, 3) ; TODO: as above 
+
+; Adjust for minor lines not modeled
+image_elec_bandpass_merged = image_elec_bandpass_merged * missing_line_scale_factor
+image_pure_elec_merged = image_pure_elec_merged * missing_line_scale_factor
 
 ; Add electron shot noise
 image_elec_shot_noise_bandpass_merged = image_elec_bandpass_merged
