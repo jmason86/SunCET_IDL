@@ -90,7 +90,7 @@ ENDIF ELSE BEGIN
   sub2 = sub1
   sub3 = sub1
 ENDELSE
-dataloc = getenv('SunCET_base') + 'MHD/euv_sim/'
+dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
 saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/'
 
 ; Configuration (flexible numbers)
@@ -137,14 +137,10 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
     restore, files_one_integration[time_index] ; [erg/cm2/s/pixel] -- simulation pixel
     
-    ; Pull out the simulation plate scale and wavelengths
-    sim_plate_scale = euv171_image.dx  ; [arcsec]
-    
-    sim_array = [[[euv171_image.data]], $
-                 [[euv177_image.data]], $
-                 [[euv180_image.data]], $
-                 [[euv195_image.data]], $
-                 [[euv202_image.data]]]
+    ; Pull out the simulation images, plate scale, and wavelengths
+    sim_array = temporary(rendered_maps)
+    sim_plate_scale = map_metadata.dx  ; [arcsec]
+    waves = lines.wvl ; [Å]
     
     image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
     image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
