@@ -61,7 +61,6 @@ base_path = getenv('SunCET_base')
 reflectivity_path = base_path + 'Mirror_Data/'
 psf_path = base_path + 'PSF_Data/'
 
-
 ; Check keywords (upfront for safety)
 no_spikes = keyword_set(NO_SPIKES)
 no_dead_pix = keyword_set(NO_DEAD_PIX)
