@@ -94,7 +94,7 @@ dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
 saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/'
 
 ; Configuration (flexible numbers)
-exposure_short = 0.025 ; [sec] Up to 23 seconds
+exposure_short = 0.035 ; [sec] Up to 23 seconds
 exposure_long = 10.0 ; [sec] Up to 23 seconds
 num_short_im_to_stack = 5 ; Up to 1 minute when combined with exposure_short
 num_long_im_to_stack = 3 ; Up to 1 minute when combined with exposure_long
@@ -151,8 +151,8 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     
     ; Disk bounds in pixels
     bound0 = 0    ; start pixel
-    bound1 = 553  ; pixels in to solar limb (really to 1.05 Rs)
-    bound2 = 947  ; pixels in to opposite solar limb (really to 1.05 Rs opposite side)
+    bound1 = 500  ; pixels in to solar limb (really to 1.05 Rs)
+    bound2 = 1000  ; pixels in to opposite solar limb (really to 1.05 Rs opposite side)
     bound3 = 1499 ; final pixel
     
     ; Disk pixels (circle)
@@ -247,7 +247,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     timeInMovie = movie_object_log.Put(vid_stream_log, i1.CopyWindow())
     timeInMovie = movie_object_power.Put(vid_stream_power, i4.CopyWindow())
     i1.Close
-    i4.CLose
+    i4.Close
   ENDIF
   
   IF keyword_set(MAKE_SAVESET) THEN BEGIN
