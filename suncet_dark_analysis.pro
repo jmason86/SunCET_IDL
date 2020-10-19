@@ -29,8 +29,8 @@
 PRO SunCET_dark_analysis
 kill
 ; Defaults
-dataloc = getenv('SunCET_dark_data_phase_a')
-saveloc = getenv('SunCET_dark_analysis')
+dataloc = getenv('SunCET_base') + 'Dark_Data/'
+saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/Darks/'
 
 file = '-10 C/10 second/FrameData_20201007_235500184.hex'
 path_filename = dataloc + file
