@@ -25,7 +25,7 @@
 ;   None
 ;
 ; EXAMPLE:
-;   im = csol_hex2img(path_filename, nrows=1504, ncols=2000)
+;   im = SunCET_read_detector_hex(path_filename, nrows=1504, ncols=2000)
 ;-
 FUNCTION SunCET_read_detector_hex, path_filename, $
                                    nrows=nrows, ncols=ncols
@@ -36,6 +36,12 @@ IF nrows EQ !NULL THEN BEGIN
 ENDIF
 IF ncols EQ !NULL THEN BEGIN
   ncols = 1500L
+ENDIF
+
+; Input check
+IF NOT isA(nrows, 'long') OR NOT isA(ncols, 'long') THEN BEGIN
+  message, /INFO, 'Input nrows and ncols must be long integer type'
+  return, -1
 ENDIF
 
 ; Read binary into byte array
@@ -63,7 +69,7 @@ IF cnt GT 0 THEN BEGIN
 ENDIF
 
 ; Rotate the image to be consistent with what is shown in MATLAB
-img = rotate(img, 1)
+img = rotate(img, 3)
 
 return, img
 
