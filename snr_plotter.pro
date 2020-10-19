@@ -105,10 +105,10 @@ saturated_log = alog10(saturated_normal)
 i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/binning, background_color='black', margin=0, window_title='SNR Contours')
 FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
 c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(750), findgen(750), color='tomato', /OVERPLOT, $
-            c_value = [1, 3, 10, 40], $ 
-            c_thick=3, c_label_interval=0.3)
+            c_value = [40, 10, 1], $ 
+            c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
 c.font_size=16
-i1.save, saveloc + 'snr_image_' + strtrim(exptime, 2) + 'sec.png' 
+i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec.png' 
 
 
 
