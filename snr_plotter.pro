@@ -1,5 +1,43 @@
+;+
+; NAME:
+;   snr_plotter
+;
+; PURPOSE:
+;   Plot the signal to noise ratio as contours on an image
+;
+; INPUTS:
+;   None
+;
+; OPTIONAL INPUTS:
+;   None
+;
+; KEYWORD PARAMETERS:
+;   None
+;
+; OUTPUTS:
+;   Images with contours on screen and on disk
+;
+; OPTIONAL OUTPUTS:
+;   None
+;
+; RESTRICTIONS:
+;   Requires access to the synthetic EUV images
+;
+; EXAMPLE:
+;   Just run it!
+;-
+PRO snr_plotter
+
+; Defaults
+dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
+saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/SNR/'
+
+; ~Constants
+SunCET_image_size = [1500, 1500]
+binning = 2
+
 ;; recover an EUV map 
-restore, '/Users/dbseaton/Documents/Ongoing_Research/SunCET/Rendered_EUV_Maps/euv_sim_320.sav', /verbose
+restore, dataloc + '/euv_sim_320.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
@@ -12,7 +50,7 @@ sd_box = 3 ;;; always odd to maintain centering!
 
 ;; run the simulator
 image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, /no_spike, $
-	output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
+	               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 
 ;; rebin to the real image scale 
 rebin_pure_image = rebin(pure_image, 750, 750) * 4.
@@ -60,6 +98,22 @@ rsun_use = rsun/2.
 xcen = 750/2.
 ycen = 750/2.
 
+saturated_normal = 65535L
+saturated_log = alog10(saturated_normal)
+
+; IDL plotting function method
+i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/binning, background_color='black', margin=0, window_title='SNR Contours')
+FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
+c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(750), findgen(750), color='tomato', /OVERPLOT, $
+            c_value = [1, 3, 10, 40], $ 
+            c_thick=3, c_label_interval=0.3)
+c.font_size=16
+i1.save, saveloc + 'snr_image_' + strtrim(exptime, 2) + 'sec.png' 
+
+
+
+STOP
+; SSW / contour procedure method
 set_plot, 'ps'
 device, filename = 'snr_plot.eps', /encapsulated
 device, xsize = 6, ysize = 6, /inches
@@ -72,8 +126,8 @@ ymargin_default = !y.margin
 !x.margin = [4, 3]
 !y.margin = [4, 3]
 plot_image, alog10(rebin_standard_image), min = 0, $
-	origin = [-xcen/rsun_use, -ycen/rsun_use], scale = [1./rsun_use, 1./rsun_use], charsi = 0.75, $
-	xtitle = 'Distance (R!dSun!n)', ytitle = 'Distance (R!dSun!n)', charthick = 1.5
+	          origin = [-xcen/rsun_use, -ycen/rsun_use], scale = [1./rsun_use, 1./rsun_use], charsi = 0.75, $
+            xtitle = 'Distance (R!dSun!n)', ytitle = 'Distance (R!dSun!n)', charthick = 1.5
 !x.margin = xmargin_default
 !y.margin = ymargin_default
 
@@ -101,3 +155,5 @@ contour, smooth(rebin_pure_image/local_rms , 20, /edge_truncate), (findgen(750) 
 device, /close 
 
 set_plot, 'x'
+
+END
