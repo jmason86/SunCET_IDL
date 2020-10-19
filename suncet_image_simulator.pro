@@ -90,6 +90,7 @@ ENDIF ELSE BEGIN
   sub2 = sub1
   sub3 = sub1
 ENDELSE
+dataloc = getenv('SunCET_base') + 'MHD/euv_sim/'
 saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/'
 
 ; Configuration (flexible numbers)
@@ -106,7 +107,7 @@ jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM 
 plate_scale = 4.8 ; [arcsec/pixel]
 WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 
-files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_3*.sav')
+files = file_search(dataloc + 'euv_sim_3*.sav')
 
 ; Prepare image stack
 bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
@@ -116,7 +117,7 @@ im_disk_stack = im_outer_stack
 
 ; Prepare for movie
 IF keyword_set(MAKE_MOVIE) THEN BEGIN
-  files = file_search('/Users/jmason86/Dropbox/Research/Data/MHD/For SunCET Phase A/euv_sim/euv_sim_*.sav') ; all files instead of a subselection
+  files = file_search(dataloc + 'euv_sim_*.sav') ; all files instead of a subselection
   last_movie_index = n_elements(files) - bigger_num_to_stack - 1
   fps = 20
   
@@ -145,8 +146,8 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
                  [[euv195_image.data]], $
                  [[euv202_image.data]]]
     
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-    image_simulator, sim_array, sim_plate_scale, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+    image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+    image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
     
     ;
     ; SHDR
