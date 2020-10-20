@@ -41,7 +41,7 @@ restore, dataloc + '/euv_sim_360.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
-exptime = 10.
+exptime = 20.
 rsun = 960./sc_plate_scale
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
