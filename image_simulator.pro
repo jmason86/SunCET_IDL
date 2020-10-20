@@ -143,7 +143,7 @@ ENDIF ELSE IF strcmp(mirror_coating, 'simo', /FOLD_CASE) THEN BEGIN
   reflect = simo.reflectance
 ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
-  return, -1
+  return
 ENDELSE
 sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
 
