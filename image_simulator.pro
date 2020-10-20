@@ -12,18 +12,18 @@
 ;   waves [fltarr]:          Array with wavelengths (in Angstroms) of each individual image in sim_array
 ; 
 ; OPTIONAL INPUTS:
-;   exposure_time_sec [float]: Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
-;                              Default is 10 [seconds].
-;   dark_current [double]:     Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
-;                              Overrides /WARM_DETECTOR keyword if both are used. 
-;   MISSING_LINE_SCALE_FACTOR: Set this to a value to use to scale data up to account for weak non-modeled lines
+;   exposure_time_sec [float]:         Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
+;                                      Default is 10 [seconds].
+;   dark_current [double]:             Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
+;                                      Overrides /WARM_DETECTOR keyword if both are used.
+;   missing_line_scale_factor [float]: Set this to a value to use to scale data up to account for weak non-modeled lines
+;   mirror_coating [string]:           Which mirror coating to use. Either 'B4C' (Default; shorthand for B4C/Mo/Al), 'SiMo', or 'AlZr'. Case insensitive.
 ;
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
 ;   NO_DEAD_PIX: Set this to disable application of dead pixels in the detector
 ;   WARM_DETECTOR: Set this to set the detector temperature to +20 ºC rather than the nominal -10 ºC. This increases the dark current from 1 e-/sec/pix to 20.
 ;   NO_DARK_SUBTRACT: Set this to turn off dark subtraction.
-;   SUVI_MIRROR: Use SUVI reflectivity instead of default broadband
 ;   MODEL_PSF: Use modeled PSF instead of ray-trace PSF files
 ;   NO_PSF: Do not simulate the PSF
 ;
@@ -42,10 +42,10 @@
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, waves, $
-                     exposure_time_sec=exposure_time_sec, dark_current=dark_current, $
-                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, $
-                     output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final, $
-                     missing_line_scale_factor = missing_line_scale_factor, suvi_mirror = suvi_mirror, model_psf = model_psf
+                     exposure_time_sec=exposure_time_sec, dark_current=dark_current, missing_line_scale_factor=missing_line_scale_factor, mirror_coating=mirror_coating, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, MODEL_PSF=MODEL_PSF, $
+                     output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final
+                     
                      
 ; Input check and defaults
 IF sim_array EQ !NULL THEN BEGIN
@@ -54,6 +54,9 @@ IF sim_array EQ !NULL THEN BEGIN
 ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
+ENDIF
+IF mirror_coating EQ !NULL THEN BEGIN
+  mirror_coating = 'B4C'
 ENDIF
 
 ; set up environment variable
@@ -123,25 +126,26 @@ IF dark_current NE !NULL THEN BEGIN
 ENDIF
 
 ;; load and interpolate mirror reflectivity data
-if ~suvi_mirror then begin 
-  text_lines = rd_tfile(reflectivity_path + '/XRO47864_TH=5.0.txt', nocomment = '#')
-  data_str = strsplit(text_lines, /extract)
-  r_wave = float( (data_str.ToArray())[*, 0] ) * 10. ; [Angstrom] refelctivity wavelengths
-  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
-endif else begin
-  ; SSW implementation
-;  text_lines = rd_tfile(reflectivity_path + '/suvi_195.csv', nocomment = ';')
-;  data_str = strsplit(text_lines, ',', /extract)
-;  r_wave = float( (data_str.ToArray())[*, 0] ) ; [Angstrom] refelctivity wavelengths
-;  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
-  
-  ; IDL core implementation
+IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'b4c_ascii_template.sav'
+  simo = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
+  r_wave = b4c.wave
+  reflect = b4c.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'alzr', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'alzr_ascii_template.sav'
+  alzr = read_ascii(reflectivity_path + 'AlZr_195A_TH=5.0.txt', template=alzr_template)
+  r_wave = alzr.wave
+  reflect = alzr.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'simo', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'simo_ascii_template.sav'
   simo = read_ascii(reflectivity_path + 'SiMo_195A_TH=5.0.txt', template=simo_template)
   r_wave = simo.wave
   reflect = simo.reflectance
-endelse 
-sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths
+ENDIF ELSE BEGIN
+  message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
+  return, -1
+ENDELSE
+sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
 
 ; Telescope/detector calculations
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
