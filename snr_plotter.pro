@@ -47,9 +47,10 @@ theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
 ;; it has a bad variable name but I don't want to change it 
 sd_box = 3 ;;; always odd to maintain centering!
+mirror_coating = 'b4c'
 
 ;; run the simulator
-image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, /no_spike, $
+image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, mirror_coating=mirror_coating, /no_spike, $
 	               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 
 ;; rebin to the real image scale 
@@ -95,7 +96,7 @@ PSNR = 10 * alog10( local_max^2/MSE^2 )
 snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
 contour_x = findgen(750)
 contour_y = findgen(750)
-save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec.sav' 
+save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec_' + mirror_coating + '.sav' 
 
 ;; make a plot 
 
