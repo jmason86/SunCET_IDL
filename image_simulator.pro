@@ -129,10 +129,17 @@ if ~suvi_mirror then begin
   r_wave = float( (data_str.ToArray())[*, 0] ) * 10. ; [Angstrom] refelctivity wavelengths
   reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
 endif else begin
-  text_lines = rd_tfile(reflectivity_path + '/suvi_195.csv', nocomment = ';')
-  data_str = strsplit(text_lines, ',', /extract)
-  r_wave = float( (data_str.ToArray())[*, 0] ) ; [Angstrom] refelctivity wavelengths
-  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+  ; SSW implementation
+;  text_lines = rd_tfile(reflectivity_path + '/suvi_195.csv', nocomment = ';')
+;  data_str = strsplit(text_lines, ',', /extract)
+;  r_wave = float( (data_str.ToArray())[*, 0] ) ; [Angstrom] refelctivity wavelengths
+;  reflect = float( (data_str.ToArray())[*, 1] ) ; [unitless] reflectivities
+  
+  ; IDL core implementation
+  restore, reflectivity_path + 'simo_ascii_template.sav'
+  simo = read_ascii(reflectivity_path + 'SiMo_195A_TH=5.0.txt', template=simo_template)
+  r_wave = simo.wave
+  reflect = simo.reflectance
 endelse 
 sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths
 
