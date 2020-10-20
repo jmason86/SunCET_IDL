@@ -99,7 +99,7 @@ exposure_long = 20.0 ; [sec] Up to 23 seconds
 num_short_im_to_stack = 5 ; Up to 1 minute when combined with exposure_short
 num_long_im_to_stack = 3 ; Up to 1 minute when combined with exposure_long
 
-; Firm numbers
+; Firm numbers / config
 SunCET_image_size = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2. ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 should be specified as 2.
@@ -107,8 +107,9 @@ jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM 
 plate_scale = 4.8 ; [arcsec/pixel]
 WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 rsun_binned_pixels = 960./plate_scale / binning
+mirror_coating = 'b4c'
 
-files = file_search(dataloc + 'euv_sim_3*.sav')
+files = file_search(dataloc + 'euv_sim_35*.sav')
 
 ; Prepare image stack
 bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
@@ -143,8 +144,14 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     sim_plate_scale = map_metadata.dx  ; [arcsec]
     waves = lines.wvl ; [Å]
     
-    image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_short, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
-    image_simulator, sim_array, sim_plate_scale, waves, exposure_time_sec=exposure_long, WARM_DETECTOR=WARM_DETECTOR, dark_current=dark_current, output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
+    image_simulator, sim_array, sim_plate_scale, waves, $
+                     exposure_time_sec=exposure_short, dark_current=dark_current, mirror_coating=mirror_coating, $ 
+                     WARM_DETECTOR=WARM_DETECTOR, $ 
+                     output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
+    image_simulator, sim_array, sim_plate_scale, waves, $ 
+                     exposure_time_sec=exposure_long, dark_current=dark_current, mirror_coating=mirror_coating, $ 
+                     WARM_DETECTOR=WARM_DETECTOR, $ 
+                     output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
     
     ;
     ; SHDR
@@ -268,7 +275,7 @@ ENDIF
 
 IF keyword_set(SNR_OVERLAY) THEN BEGIN
   snr_saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/SNR/'
-  restore, snr_saveloc + 'snr_' + jpmprintnumber(exposure_long) + 'sec.sav'
+  restore, snr_saveloc + 'snr_' + jpmprintnumber(exposure_long) + 'sec_' + mirror_coating + '.sav'
   FOR r_index = 1, 4 DO e = ellipse(750/2., 750/2., major=rsun_binned_pixels * r_index, /data, color='white', target=i1, fill_background=0)
   c = contour(snr_smooth, contour_x, contour_y, color='tomato', overplot=i1, $
               c_value = [40, 10, 1], $
