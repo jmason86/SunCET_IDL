@@ -37,7 +37,7 @@ SunCET_image_size = [1500, 1500]
 binning = 2
 
 ;; recover an EUV map 
-restore, dataloc + '/euv_sim_320.sav', /VERBOSE
+restore, dataloc + '/euv_sim_360.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
@@ -91,6 +91,11 @@ MSE =  total( (pure_sub_stack - sub_stack)^2, 3 ) /sd_box^2
 
 local_max = max(pure_sub_stack, dim = 3)
 PSNR = 10 * alog10( local_max^2/MSE^2 )
+
+snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
+contour_x = findgen(750)
+contour_y = findgen(750)
+save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec.sav' 
 
 ;; make a plot 
 
