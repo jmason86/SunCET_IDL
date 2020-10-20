@@ -128,7 +128,7 @@ ENDIF
 ;; load and interpolate mirror reflectivity data
 IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
-  simo = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
+  b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
   r_wave = b4c.wave
   reflect = b4c.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'alzr', /FOLD_CASE) THEN BEGIN
