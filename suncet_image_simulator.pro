@@ -76,7 +76,7 @@
 
 
 PRO SunCET_image_simulator, dark_current=dark_current, $ 
-                            HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES, MAKE_SAVESET=MAKE_SAVESET, MAKE_MOVIE=MAKE_MOVIE, VERBOSE=VERBOSE
+                            HIGHLIGHT_SUB_IMAGES=HIGHLIGHT_SUB_IMAGES, MAKE_SAVESET=MAKE_SAVESET, MAKE_MOVIE=MAKE_MOVIE, SNR_OVERLAY=SNR_OVERLAY, VERBOSE=VERBOSE
 kill
 tic
 
@@ -95,7 +95,7 @@ saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/202
 
 ; Configuration (flexible numbers)
 exposure_short = 0.035 ; [sec] Up to 23 seconds
-exposure_long = 10.0 ; [sec] Up to 23 seconds
+exposure_long = 20.0 ; [sec] Up to 23 seconds
 num_short_im_to_stack = 5 ; Up to 1 minute when combined with exposure_short
 num_long_im_to_stack = 3 ; Up to 1 minute when combined with exposure_long
 
@@ -106,6 +106,7 @@ binning = 2. ; [pixels] The number of pixels to bin in each axis, e.g., 2 x 2 sh
 jitter = 0.6372 ; [arcsec/s] 1 sigma RMS jitter from MinXSS (comparable to CSIM average across axes)
 plate_scale = 4.8 ; [arcsec/pixel]
 WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
+rsun_binned_pixels = 960./plate_scale / binning
 
 files = file_search(dataloc + 'euv_sim_3*.sav')
 
@@ -263,6 +264,17 @@ ENDFOR ; movie_index loop
 IF keyword_set(MAKE_MOVIE) THEN BEGIN
   movie_object_log.Cleanup
   movie_object_power.Cleanup
+ENDIF
+
+IF keyword_set(SNR_OVERLAY) THEN BEGIN
+  snr_saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/SNR/'
+  restore, snr_saveloc + 'snr_' + jpmprintnumber(exposure_long) + 'sec.sav'
+  FOR r_index = 1, 4 DO e = ellipse(750/2., 750/2., major=rsun_binned_pixels * r_index, /data, color='white', target=i1, fill_background=0)
+  c = contour(snr_smooth, contour_x, contour_y, color='tomato', overplot=i1, $
+              c_value = [40, 10, 1], $
+              c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
+  c.font_size=16
+  i1.save, snr_saveloc + 'snr_composite_' + JPMPrintNumber(exposure_long) + 'sec.png'
 ENDIF
 
 toc
