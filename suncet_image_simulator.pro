@@ -95,9 +95,9 @@ saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/202
 
 ; Configuration (flexible numbers)
 exposure_short = 0.035 ; [sec] Up to 23 seconds
-exposure_long = 20.0 ; [sec] Up to 23 seconds
+exposure_long = 15.0 ; [sec] Up to 23 seconds
 num_short_im_to_stack = 5 ; Up to 1 minute when combined with exposure_short
-num_long_im_to_stack = 3 ; Up to 1 minute when combined with exposure_long
+num_long_im_to_stack = 4 ; Up to 1 minute when combined with exposure_long
 
 ; Firm numbers / config
 SunCET_image_size = [1500, 1500] ; [pixels]
@@ -183,9 +183,9 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     ; Off disk pixels
     im_outer = im_disk
     im_mid = im_disk
-    im_outer[bound0:bound1, *] = image_long[bound0:bound1, *] ; left
-    im_mid[bound1:bound2, *] = image_long[bound1:bound2, *] ; middle
-    im_outer[bound2:bound3, *] = image_long[bound2:bound3, *] ; right
+    im_outer[*, bound0:bound1] = image_long[*, bound0:bound1] ; bottom
+    im_mid[*, bound1:bound2] = image_long[*, bound1:bound2] ; middle
+    im_outer[*, bound2:bound3] = image_long[*, bound2:bound3] ; top
     
     ; Normalize by exposure time
     im_outer /= exposure_long
@@ -280,8 +280,8 @@ IF keyword_set(SNR_OVERLAY) THEN BEGIN
   c = contour(snr_smooth, contour_x, contour_y, color='tomato', overplot=i1, $
               c_value = [40, 10, 1], $
               c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
-  c.font_size=16
-  i1.save, snr_saveloc + 'snr_composite_' + JPMPrintNumber(exposure_long) + 'sec.png'
+  c.font_size=20
+  i1.save, snr_saveloc + 'snr_composite_' + JPMPrintNumber(exposure_long) + 'sec_' + mirror_coating + '.png'
 ENDIF
 
 toc
