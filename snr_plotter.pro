@@ -41,7 +41,7 @@ restore, dataloc + '/euv_sim_360.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
-exptime = 20.
+exptime = 15.
 rsun = 960./sc_plate_scale
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
@@ -114,7 +114,7 @@ c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(750)
             c_value = [40, 10, 1], $ 
             c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
 c.font_size=16
-i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec.png' 
+i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec_' + mirror_coating +'.png' 
 
 
 
