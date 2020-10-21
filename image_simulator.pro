@@ -129,17 +129,17 @@ ENDIF
 IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
-  r_wave = b4c.wave
+  r_wave = b4c.wave * 10. ; [Å] Comes in nm, so convert to Å
   reflect = b4c.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'alzr', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'alzr_ascii_template.sav'
   alzr = read_ascii(reflectivity_path + 'AlZr_195A_TH=5.0.txt', template=alzr_template)
-  r_wave = alzr.wave
+  r_wave = alzr.wave ; Å
   reflect = alzr.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'simo', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'simo_ascii_template.sav'
   simo = read_ascii(reflectivity_path + 'SiMo_195A_TH=5.0.txt', template=simo_template)
-  r_wave = simo.wave
+  r_wave = simo.wave ; Å
   reflect = simo.reflectance
 ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
