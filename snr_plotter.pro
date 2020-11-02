@@ -43,7 +43,8 @@ SunCET_image_size = [1500, 1500]
 if (snr_neighborhood_size mod 2) eq 0 then message, "SNR Neighborhood must be odd."
 
 ;; recover an EUV map 
-restore, dataloc + '/euv_sim_360.sav', /VERBOSE
+;; leading edge of CME is approaching the edge of our sim at frame 150
+restore, dataloc + '/euv_sim_150.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
@@ -55,12 +56,16 @@ theta = findgen(361) * !pi/180.
 mirror_coating = 'b4c'
 
 ;; run the simulator
-image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, mirror_coating=mirror_coating, /no_spike, $
-	               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
+synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
+for n = 0, 3 do begin 
+	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, mirror_coating=mirror_coating, /no_spike, $
+		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
+	synth_image_arr[*, *, n] = image
+endfor
 
 ;; rebin to the real image scale 
 rebin_pure_image = rebin(pure_image, SunCET_image_size[0]/rebin_size, SunCET_image_size[1]/rebin_size) * rebin_size^2.
-rebin_standard_image = rebin(image, SunCET_image_size[0]/rebin_size, SunCET_image_size[1]/rebin_size) * rebin_size^2.
+rebin_standard_image = rebin(median(synth_image_arr, dim = 3), SunCET_image_size[0]/rebin_size, SunCET_image_size[1]/rebin_size) * rebin_size^2.
 
 ;; sub_stack is a holder array we use for fast neighborhood calculations
 sub_stack = fltarr(SunCET_image_size[0]/rebin_size, SunCET_image_size[1]/rebin_size, snr_neighborhood_size^2)
@@ -118,7 +123,7 @@ i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, d
 FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
 c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
 			findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
-			c_value = [40, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
+			c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
 c.font_size=16
 i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec_' + mirror_coating +'.png' 
 
