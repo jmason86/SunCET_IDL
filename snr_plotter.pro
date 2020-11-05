@@ -9,10 +9,11 @@
 ;   None
 ;
 ; OPTIONAL INPUTS:
-;   SNR_NEIGHBORHOOD_SIZE: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis (default: 3)
-;                          This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
-;   REBIN_RESOLUTION: 
-;
+;   snr_neighborhood_size [integer]: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis. Default is 3.
+;                                    This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
+;   rebin_resolution [integer]: Binning in the usual sense. Should usually be snr_neighborhood_size-1. Default is 2.
+;   mirror_coating [string]: Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
+;   
 ; KEYWORD PARAMETERS:
 ;   None
 ;
