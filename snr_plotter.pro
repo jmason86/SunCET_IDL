@@ -118,13 +118,8 @@ saturated_normal = 65535L
 saturated_log = alog10(saturated_normal)
 
 ; IDL plotting function method
-i1 = image(alog10(rebin_standard_image))
-i1.max_value = saturated_log
-i1.min_value = 0
-i1.dimensions = SunCET_image_size / rebin_size
-i1.background_color = 'black'
-i1.margin = 0
-i1.window_title = 'SNR Contours'
+i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
+	         background_color='black', margin=0, window_title='SNR Contours')
 FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
 c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
 			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
