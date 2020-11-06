@@ -9,10 +9,11 @@
 ;   None
 ;
 ; OPTIONAL INPUTS:
-;   SNR_NEIGHBORHOOD_SIZE: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis (default: 3)
-;                          This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
-;   REBIN_RESOLUTION: 
-;
+;   snr_neighborhood_size [integer]: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis. Default is 3.
+;                                    This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
+;   rebin_resolution [integer]: Binning in the usual sense. Should usually be snr_neighborhood_size-1. Default is 2.
+;   mirror_coating [string]: Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
+;   
 ; KEYWORD PARAMETERS:
 ;   None
 ;
@@ -28,13 +29,14 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO snr_plotter, snr_neighborhood_size = snr_neighborhood_size, rebin_size = rebin_size
+PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, mirror_coating=mirror_coating
 
 ; Defaults
 dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
 saveloc = getenv('SunCET_base') + 'SNR/'
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
+IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
 
 ; ~Constants
 SunCET_image_size = [1500, 1500]
@@ -53,12 +55,11 @@ rsun = 960./sc_plate_scale
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
 ;; it has a bad variable name but I don't want to change it 
-mirror_coating = 'b4c'
 
 ;; run the simulator
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
 for n = 0, 3 do begin 
-	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure = exptime, mirror_coating=mirror_coating, /no_spike, $
+	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure=exptime, mirror_coating=mirror_coating, /no_spike, $
 		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 	synth_image_arr[*, *, n] = image
 endfor
@@ -106,7 +107,7 @@ PSNR = 10 * alog10( local_max^2/MSE^2 )
 snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
 contour_x = findgen(SunCET_image_size[1]/rebin_size)
 contour_y = findgen(SunCET_image_size[1]/rebin_size)
-save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec_' + mirror_coating + '.sav' 
+save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav' 
 
 ;; make a plot 
 
@@ -119,13 +120,13 @@ saturated_log = alog10(saturated_normal)
 
 ; IDL plotting function method
 i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
-	background_color='black', margin=0, window_title='SNR Contours')
+	         background_color='black', margin=0, window_title='SNR Contours')
 FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
 c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
-			findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
-			c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
-c.font_size=16
-i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec_' + mirror_coating +'.png' 
+			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
+            c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
+c.font_size = 16
+i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
 
 
 

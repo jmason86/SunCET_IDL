@@ -92,6 +92,7 @@ ENDIF ELSE BEGIN
 ENDELSE
 dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
 saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/'
+snr_saveloc = getenv('SunCET_base') + 'SNR/'
 
 ; Configuration (flexible numbers)
 exposure_short = 0.035 ; [sec] Up to 23 seconds
@@ -108,8 +109,9 @@ plate_scale = 4.8 ; [arcsec/pixel]
 WARM_DETECTOR = 0 ; Keyword flag passthrough, so only use 0/1 (should really be True/False if IDL had that)
 rsun_binned_pixels = 960./plate_scale / binning
 mirror_coating = 'b4c'
+snr_rebin_size = 2 ; [pixels] The number of pixels used for binning for the SNR calculation
 
-files = file_search(dataloc + 'euv_sim_35*.sav')
+files = file_search(dataloc + 'euv_sim_15*.sav')
 
 ; Prepare image stack
 bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
@@ -259,7 +261,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   ENDIF
   
   IF keyword_set(MAKE_SAVESET) THEN BEGIN
-    save, im_outer_median_binned, im_mid_median_binned, im_disk_median_binned, filename=saveloc+'simulated_images.sav', /COMPRESS
+    save, im_outer_median_binned, im_mid_median_binned, im_disk_median_binned, filename=saveloc+'simulated_images_' + JPMPrintNumber(exposure_long) + 'sec_' + 'rebin_' + jpmprintnumber(snr_rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav', /COMPRESS
   ENDIF
   
   IF keyword_set(VERBOSE) THEN BEGIN
@@ -274,14 +276,13 @@ IF keyword_set(MAKE_MOVIE) THEN BEGIN
 ENDIF
 
 IF keyword_set(SNR_OVERLAY) THEN BEGIN
-  snr_saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/SNR/'
-  restore, snr_saveloc + 'snr_' + jpmprintnumber(exposure_long) + 'sec_' + mirror_coating + '.sav'
-  FOR r_index = 1, 4 DO e = ellipse(750/2., 750/2., major=rsun_binned_pixels * r_index, /data, color='white', target=i1, fill_background=0)
-  c = contour(snr_smooth, contour_x, contour_y, color='tomato', overplot=i1, $
-              c_value = [40, 10, 1], $
-              c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
+  restore, snr_saveloc + 'snr_' + jpmprintnumber(exposure_long) + 'sec_' + 'rebin_' + jpmprintnumber(snr_rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav'
+  FOR r_index = 1, 4 DO e = ellipse(750/2., 750/2., major=rsun_binned_pixels * r_index, /DATA, color='white', target=i1, fill_background=0)
+  c = contour(snr_smooth, contour_x * snr_rebin_size / binning, contour_y * snr_rebin_size / binning, overplot=i1, $
+              c_value = [40, 10], c_color = ['dodger blue', 'tomato'], $
+              c_thick=3, c_label_interval=[0.3, 0.19], /C_LABEL_SHOW, dimensions=SunCET)
   c.font_size=20
-  i1.save, snr_saveloc + 'snr_composite_' + JPMPrintNumber(exposure_long) + 'sec_' + mirror_coating + '.png'
+  i1.save, snr_saveloc + 'snr_composite_' + JPMPrintNumber(exposure_long) + 'sec_' + 'rebin_' + jpmprintnumber(snr_rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.png'
 ENDIF
 
 toc
