@@ -1,13 +1,44 @@
+;+
+; NAME:
+;   SunCET_multi_panel_reflectance
+;
+; PURPOSE:
+;   Plot a comparison of mirror coatings with solar spectrum
+;
+; INPUTS:
+;   None, but need access to the data
+;
+; OPTIONAL INPUTS:
+;   None
+;
+; KEYWORD PARAMETERS:
+;   None
+;
+; OUTPUTS:
+;   Plots on screen and on disk
+;
+; OPTIONAL OUTPUTS:
+;   None
+;
+; RESTRICTIONS:
+;   Requires access to the data
+;
+; EXAMPLE:
+;   Just run it!
+;-
+PRO SunCET_multi_panel_reflectance
+
+; Defaults
+dataloc = getenv('SunCET_base') + 'Mirror_Data/'
+saveloc = dataloc
+csrloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/latex/images/'
+fontSize = 16
+
 eve_dataloc = getenv('SunCET_base') + 'EVE_Data/'
 data = eve_read_whole_fits(eve_dataloc + 'EVS_L2_2012067_00_006_02.fit')
 
 eve_wvln = data.spectrummeta.wavelength * 10
 eve_irrad = median(data.spectrum.irradiance, dim = 2)
-
-dataloc = getenv('SunCET_base') + 'Mirror_Data/'
-saveloc = dataloc
-csrloc = '.''
-fontSize = 16
 
 ; Load data
 restore, dataloc + 'alzr_ascii_template.sav'
@@ -27,17 +58,17 @@ eve_truncated_irrad = eve_irrad[valid_eve_points]
 b4c_ref_int = interpol(b4c.reflectance, b4c.wave, eve_truncated_wvln, /lsquadratic)
 invalid_points = where(eve_truncated_wvln lt min(b4c.wave) OR eve_truncated_wvln gt max(b4c.wave))
 b4c_ref_int[invalid_points] = 0
-b4c_mod_spec = (eve_truncated_irrad * b4c_ref_int^2.)
+b4c_mod_spec = (eve_truncated_irrad * b4c_ref_int)
 
 simo_ref_int = interpol(simo.reflectance, simo.wave, eve_truncated_wvln, /lsquadratic)
 invalid_points = where(eve_truncated_wvln lt min(simo.wave) OR eve_truncated_wvln gt max(simo.wave))
 simo_ref_int[invalid_points] = 0
-simo_mod_spec = (eve_truncated_irrad * simo_ref_int^2.)
+simo_mod_spec = (eve_truncated_irrad * simo_ref_int)
 
 alzr_ref_int = interpol(alzr.reflectance, alzr.wave, eve_truncated_wvln, /lsquadratic)
 invalid_points = where(eve_truncated_wvln lt min(alzr.wave) OR eve_truncated_wvln gt max(alzr.wave))
 alzr_ref_int[invalid_points] = 0
-alzr_mod_spec = (eve_truncated_irrad * alzr_ref_int^2.)
+alzr_mod_spec = (eve_truncated_irrad * alzr_ref_int)
 
 spec_max = max([b4c_mod_spec, simo_mod_spec, alzr_mod_spec])
 
@@ -60,7 +91,7 @@ t1 = text(0.21, 0.90, 'B$_4$C/Mo/Al, area = ' + JPMPrintNumber(int_b4c), font_si
 t2 = text(0.21, 0.87, 'Al/Zr, area = ' + JPMPrintNumber(int_alzr), font_size=fontSize-2, color=p2.color)
 t3 = text(0.21, 0.84, 'Si/Mo, area = ' + JPMPrintNumber(int_simo), font_size=fontSize-2, color=p3.color)
 
-p_spec = plot(eve_truncated_wvln, eve_truncated_irrad, ytitle = 'spectrum!C[mW/m!e2!n]', $
+p_spec = plot(eve_truncated_wvln, eve_truncated_irrad, ytitle = 'spectrum!C[mW/m$^2$/nm]', $
 	          /current, position = [0.18, 0.35, 0.95, 0.55], $
 	          xrange = valid_range, thick = 2, font_size = fontsize, $
 	          xtickvalues = findgen(7) * 10 + 160, xtickname = replicate('', 7), $
@@ -68,13 +99,13 @@ p_spec = plot(eve_truncated_wvln, eve_truncated_irrad, ytitle = 'spectrum!C[mW/m
 
 
 p_mod_spec1 = plot(eve_truncated_wvln, b4c_mod_spec/spec_max, $
-	               /current, position = [0.18, 0.1, 0.95, 0.35], $
-	               xrange = valid_range, thick = 2, font_size = fontsize, $
-				   xtitle='wavelength [Å]')
+	                 /current, position = [0.18, 0.1, 0.95, 0.35], $
+	                 xrange = valid_range, thick = 2, font_size = fontsize, $
+                   xtitle='wavelength [Å]')
 p_mod_spec2 = plot(eve_truncated_wvln, alzr_mod_spec/spec_max, 'dodger blue', $
-	               /overplot, thick = 2)
+	                 /overplot, thick = 2)
 p_mod_spec3 = plot(eve_truncated_wvln, simo_mod_spec/spec_max, 'tomato', $
-	               /overplot, thick = 2, ytitle = 'meas. spec.!C[normalized]')
+	                 /overplot, thick = 2, ytitle = 'convolved spec.!C[normalized]')
 
 
 int_alzr_spec = int_tabulated(eve_truncated_wvln, alzr_mod_spec)
@@ -90,4 +121,7 @@ t1 = text(0.21, 0.3, 'B$_4$C/Mo/Al, flux = ' + JPMPrintNumber(int_b4c_spec), fon
 t2 = text(0.21, 0.27, 'Al/Zr, flux = ' + JPMPrintNumber(int_alzr_spec), font_size=fontSize-2, color=p2.color)
 t3 = text(0.21, 0.24, 'Si/Mo, flux = ' + JPMPrintNumber(int_simo_spec), font_size=fontSize-2, color=p3.color)
 
+p1.save, saveloc + 'coating_comparison_multipane.png'
+p1.save, csrloc + 'coating_comparison_multipane.png'
 
+END
