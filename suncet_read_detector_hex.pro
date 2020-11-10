@@ -47,12 +47,15 @@ ENDIF
 ; Read binary into byte array
 get_lun, lun
 openr, lun, path_filename
+meta = bytarr(500)
 B = bytarr(2, nrows*ncols, /NOZERO)
+readu, lun, meta ; just read and dump for now 
 readu, lun, b
 close, lun
 free_lun, lun
 
 ; Uhhhh... do something? Not sure what this is for
+; I think this maps 2-byte values in B into single 16-bit values
 c = dblarr(nrows*ncols)
 c = reform(b[0, *] + 256 * b[1, *])
 
