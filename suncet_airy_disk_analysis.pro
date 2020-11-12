@@ -65,7 +65,7 @@ corr_short = im_short - im_short_dark
 
 ;i1 = image(corr_short - 1e3, dimensions=dims, margin=0, window_title = 'short')
 ishort = image(corr_short, dimensions=dims, min_value=0, max_value=(65535L - mean(im_short_dark)), margin=0, window_title = 'short')
-ishort.save, saveloc + 'Airy 3.2s.png'
+;ishort.save, saveloc + 'Airy 3.2s.png'
 
 ; Load long exposure data
 files_long = file_search(dataloc + 'Without ND Filter/50s/*.hex', count=num_files)
@@ -85,7 +85,7 @@ im_long_dark = median(im_long_darks, dimension=3)
 corr_long = im_long - im_long_dark
 
 ilong = image(alog10(corr_long), min_value=4.02, dimensions=dims, margin=0, window_title='long') ;max_value=5e3)
-ilong.save, saveloc + 'Airy 50s.png'
+;ilong.save, saveloc + 'Airy 50s.png'
 
 ; Optionally rotate image to get a good slice
 ;imrot = rot(corr_long2, 0)
@@ -108,7 +108,8 @@ peak_x = ([750, 575, 475, 375, 285, 210] - 750) / 2. ; -750 to center it and /2.
 peak_y = ([750, 720, 625, 600, 460, 350] - 750) / 2.
 distance = sqrt(peak_x^2. + peak_y^2.)
 
-p2 = plot(distance, peaks, thick=3, font_size=16, dimensions=[800,400], $
+p2 = plot(distance, peaks, thick=3, symbol='circle', sym_size=3, /SYM_FILLED, font_size=16, dimensions=[800,400], $
+          color='#CA2A7A', sym_color='#CA2A7A', $
           xtitle='distance from center [pixels]', $
           ytitle='intensity of Airy disk/rings [DN/s]', /YLOG)
 ;p2.save, saveloc + 'Airy intensity.png'
@@ -120,7 +121,7 @@ p2 = plot(jpmrange(1250, 1999), right_slice_normalized, 'tomato', THICK=2, FONT_
           TITLE='Airy Slice (right side only)', $
           YTITLE='normalized intensity [%]', $
           XTITLE='column index')
-;p2.save, saveloc + 'Airy Slice Normalized (right side only).png'
+p2.save, saveloc + 'Airy Slice Normalized (right side only).png'
 STOP
 
 END
