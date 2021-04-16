@@ -32,8 +32,8 @@
 PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, mirror_coating=mirror_coating
 
 ; Defaults
-dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
-saveloc = getenv('SunCET_base') + 'SNR/'
+dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'

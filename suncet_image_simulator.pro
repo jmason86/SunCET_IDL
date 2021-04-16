@@ -90,9 +90,9 @@ ENDIF ELSE BEGIN
   sub2 = sub1
   sub3 = sub1
 ENDELSE
-dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps/'
-saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/'
-snr_saveloc = getenv('SunCET_base') + 'SNR/'
+dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/2011-02-15/'
+snr_saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 
 ; Configuration (flexible numbers)
 exposure_short = 0.035 ; [sec] Up to 23 seconds
@@ -148,11 +148,11 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
     
     image_simulator, sim_array, sim_plate_scale, waves, $
                      exposure_time_sec=exposure_short, dark_current=dark_current, mirror_coating=mirror_coating, $ 
-                     WARM_DETECTOR=WARM_DETECTOR, $ 
+                     WARM_DETECTOR=WARM_DETECTOR, /NO_SPIKES, $ 
                      output_pure=snr_short, output_image_noise=image_noise_short, output_image_final=image_short
     image_simulator, sim_array, sim_plate_scale, waves, $ 
                      exposure_time_sec=exposure_long, dark_current=dark_current, mirror_coating=mirror_coating, $ 
-                     WARM_DETECTOR=WARM_DETECTOR, $ 
+                     WARM_DETECTOR=WARM_DETECTOR, /NO_SPIKES, $ 
                      output_pure=snr_long, output_image_noise=image_noise_long, output_image_final=image_long
     
     ;
