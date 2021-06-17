@@ -75,7 +75,7 @@ im_filename = dataloc + 'composite_' + filename_config + '_filtered.png'
 i1 = image(im_filename, dimensions=SunCET_image_size/binning, margin=0)
 e = ellipse(750/2., 750/2., major=rsun_binned_pixels * rs_ellipse, /DATA, color='white', target=i1, fill_background=0)
 c = contour(snr_smooth, contour_x * snr_binning / binning, contour_y * snr_binning / binning, overplot=i1, $
-            c_value = snr_values, c_color = ['dodger blue', 'tomato'], $
+            c_value = snr_levels, c_color = ['dodger blue', 'tomato'], $
             c_thick=3, c_label_interval=[0.3, 0.19], /C_LABEL_SHOW, dimensions=SunCET)
 c.font_size=20
 i1.save, saveloc + 'snr_composite_filtered_' + filename_config + '.png', height=dim_y, width=dim_x
@@ -87,7 +87,7 @@ tmp[0, 0] = 1
 tmp[-1, -1] = 1
 i2 = image(tmp, dimensions=SunCET_image_size/binning, margin=0)
 c = contour(snr_smooth, contour_x * snr_binning / binning, contour_y * snr_binning / binning, overplot=i2, $
-            c_value = [40, 10], c_color = ['dodger blue', 'tomato'], $
+            c_value = snr_levels, c_color = ['dodger blue', 'tomato'], $
             c_thick=3, c_label_interval=[0.3, 0.19], /C_LABEL_SHOW, dimensions=SunCET)
 c.font_size=30
 i2.save, saveloc + 'snr_contours_' + filename_config + '.png', transparent=[0, 0, 0], height=dim_y, width=dim_x
