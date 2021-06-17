@@ -47,7 +47,8 @@ IF exposure_time_sec EQ !NULL THEN BEGIN
 ENDIF
 
 ; Paths
-dataloc = getenv('SunCET_base') + 'SNR/'
+dataloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
+dataloc_maps = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
 saveloc = dataloc
 
 ; ~Constants / config
@@ -60,6 +61,9 @@ dim_y = SunCET_image_size[1]/binning
 
 ; Load the contours and get the filtered image filename
 filename_config = JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(snr_binning, /NO_DECIMALS) + '_' + mirror_coating
+IF file_test(dataloc + 'snr_' + filename_config + '.sav') NE 1 THEN BEGIN
+  snr_plotter, snr_neighborhood_size=snr_binning, rebin_size=binning, mirror_coating=mirror_coating, dataloc=dataloc_maps, saveloc=dataloc
+ENDIF
 restore, dataloc + 'snr_' + filename_config + '.sav'
 im_filename = dataloc + 'composite_' + filename_config + '_filtered.png'
 

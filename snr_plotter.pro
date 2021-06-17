@@ -29,14 +29,14 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, mirror_coating=mirror_coating
+PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
 
 ; Defaults
-dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
-saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
+IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 
 ; ~Constants
 SunCET_image_size = [1500, 1500]
