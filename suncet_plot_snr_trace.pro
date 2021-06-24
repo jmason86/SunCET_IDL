@@ -37,7 +37,7 @@ IF binning EQ !NULL THEN BEGIN
   binning = 2
 ENDIF
 IF snr_binning EQ !NULL THEN BEGIN
-  snr_binning = 2 ; [pixels] The number of pixels used for binning for the SNR calculation
+  snr_binning = 3 ; [pixels] The number of pixels used for binning for the SNR calculation (must be odd)
 ENDIF
 IF mirror_coating EQ !NULL THEN BEGIN
   mirror_coating = 'b4c'
