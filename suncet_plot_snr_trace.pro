@@ -78,10 +78,7 @@ p2 = plot(distance_rs, snr_smooth[750/2., *], '2', layout=[1, 2, 2], /CURRENT, f
           xtitle='distance [R$_\Sun$]', $
           ytitle='signal to noise ratio', yrange=[0,50])
 p1.save, saveloc + 'SNR trace.png'
-p1.save, saveloc + 'SNR trace.pdf'
+p1.save, saveloc + 'SNR trace.pdf', height=11, page_size=[5, 10]
 STOP
-
-
-
   
 END
