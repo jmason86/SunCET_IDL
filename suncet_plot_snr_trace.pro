@@ -61,7 +61,7 @@ dim_x = SunCET_image_size[0]/binning
 dim_y = SunCET_image_size[1]/binning
 
 ; Load the contours and get the filtered image filename
-filename_config = JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(snr_binning, /NO_DECIMALS) + '_' + mirror_coating
+filename_config = JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_' + mirror_coating
 IF file_test(dataloc + 'snr_' + filename_config + '.sav') NE 1 THEN BEGIN
   snr_plotter, snr_neighborhood_size=snr_binning, rebin_size=binning, mirror_coating=mirror_coating, dataloc=dataloc_maps, saveloc=dataloc
 ENDIF
@@ -78,6 +78,7 @@ p2 = plot(distance_rs, snr_smooth[750/2., *], '2', layout=[1, 2, 2], /CURRENT, f
           xtitle='distance [R$_\Sun$]', $
           ytitle='signal to noise ratio', yrange=[0,50])
 p1.save, saveloc + 'SNR trace.png'
+p1.save, saveloc + 'SNR trace.pdf'
 STOP
 
 
