@@ -45,7 +45,7 @@ ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 15.
 ENDIF
-fontsize = 16
+fontsize = 20
 
 ; Paths
 dataloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
@@ -71,14 +71,15 @@ im_filename = dataloc + 'composite_' + filename_config + '_filtered.png'
 ; Rough array tracing distance in Rs
 distance_rs = [jpmrange(-4, 0, npts=750./2.), jpmrange(0, 4, npts=750./2.)]
 
-p1 = plot(distance_rs, snr_smooth[750/2., *], '2', layout=[1, 2, 1], font_size=fontsize, dimensions=[500, 1000], $
-          xtitle='distance [R$_\Sun$]', $ 
+p1 = plot(distance_rs, snr_smooth[*, 750/2.-50], '3--', color='lime green', font_size=fontsize, dimensions=[600, 1500], $
+          xtitle='distance [R$_\Sun^N$]', $ 
           ytitle='signal to noise ratio')
-p2 = plot(distance_rs, snr_smooth[750/2., *], '2', layout=[1, 2, 2], /CURRENT, font_size=fontsize, $
-          xtitle='distance [R$_\Sun$]', $
-          ytitle='signal to noise ratio', yrange=[0,50])
+;p2 = plot(distance_rs, snr_smooth[*, 750/2.-50], '3--', color='lime green', layout=[1, 2, 2], /CURRENT, font_size=fontsize, $
+;          xtitle='distance [R$_\Sun^N$]', $
+;          ytitle='signal to noise ratio', yrange=[0, 200])
 p1.save, saveloc + 'SNR trace.png'
-p1.save, saveloc + 'SNR trace.pdf', height=11, page_size=[5, 10]
+p1.save, saveloc + 'SNR trace.pdf', height=11, page_size=[7, 10]
 STOP
   
+kill
 END
