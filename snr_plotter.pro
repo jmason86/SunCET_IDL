@@ -46,7 +46,7 @@ if (snr_neighborhood_size mod 2) eq 0 then message, "SNR Neighborhood must be od
 
 ;; recover an EUV map 
 ;; leading edge of CME is approaching the edge of our sim at frame 150
-restore, dataloc + '/euv_sim_150.sav', /VERBOSE
+restore, dataloc + '/euv_sim_210.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
