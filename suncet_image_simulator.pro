@@ -111,7 +111,7 @@ rsun_binned_pixels = 960./plate_scale / binning
 mirror_coating = 'b4c'
 snr_rebin_size = 2 ; [pixels] The number of pixels used for binning for the SNR calculation
 
-files = file_search(dataloc + 'euv_sim_15*.sav')
+files = file_search(dataloc + 'euv_sim_21*.sav') ; 15* is better for the 2018 CME, 21* for the 2011 CME
 
 ; Prepare image stack
 bigger_num_to_stack = num_short_im_to_stack > num_long_im_to_stack
