@@ -43,7 +43,7 @@ IF mirror_coating EQ !NULL THEN BEGIN
   mirror_coating = 'b4c'
 ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
-  exposure_time_sec = 15.
+  exposure_time_sec = 5.
 ENDIF
 fontsize = 20
 
@@ -61,11 +61,12 @@ dim_x = SunCET_image_size[0]/binning
 dim_y = SunCET_image_size[1]/binning
 
 ; Load the contours and get the filtered image filename
-filename_config = JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_' + mirror_coating
-IF file_test(dataloc + 'snr_' + filename_config + '.sav') NE 1 THEN BEGIN
+filename_config = 'snr_0.03sec_' + JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_' + mirror_coating
+filename = dataloc + '/Contours/' + filename_config + '.sav'
+IF file_test(filename) NE 1 THEN BEGIN
   snr_plotter, snr_neighborhood_size=snr_binning, rebin_size=binning, mirror_coating=mirror_coating, dataloc=dataloc_maps, saveloc=dataloc
 ENDIF
-restore, dataloc + 'snr_' + filename_config + '.sav'
+restore, filename
 im_filename = dataloc + 'composite_' + filename_config + '_filtered.png'
   
 ; Rough array tracing distance in Rs
