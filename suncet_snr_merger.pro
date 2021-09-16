@@ -6,10 +6,11 @@
 ;   The SNR contours are generated separately for the short and long exposures. This code merges them. 
 ;
 ; INPUTS:
-;   None, but requires access to files in SunCET_base
+;   None
 ;
 ; OPTIONAL INPUTS:
-;   None
+;   exposure_time1 [float]: The first of the two exposures times to merge resultant SNRs for
+;   exposure_time2 [float]: The second of the two exposure times to merge resultant SNRs for
 ;
 ; KEYWORD PARAMETERS:
 ;   None
@@ -27,16 +28,30 @@
 ; EXAMPLE:
 ;   Just run it
 ;-
-PRO SunCET_snr_merger
+PRO SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2
 
+; Defaults
+IF exposure_time1 EQ !NULL THEN BEGIN
+  exposure_time1 = 0.035
+ENDIF
+IF exposure_time2 EQ !NULL THEN BEGIN
+  exposure_time2 = 5.0
+ENDIF
+exposure_time1_str = jpmprintnumber(exposure_time1)
+exposure_time2_str = jpmprintnumber(exposure_time2)
 
 ;;; it takes a long time to generate the SNR plots because you have to run the image simulator multiple times
 ;;; so I am just saving them and recycling them
-restore, getenv('SunCET_base') + '/SNR/2011-02-15/Contours/snr_0.03sec_rebin_2_b4c.sav'
-snr_035_smooth = snr_smooth
-restore, getenv('SunCET_base') + '/SNR/2011-02-15/Contours/snr_5.00sec_rebin_2_b4c.sav'
-snr_5s_smooth = snr_smooth
-restore, getenv('SunCET_base') + '/SNR/2011-02-15/Contours/snr_15sec_rebin_2_b4c.sav'
+IF exposure_time1 EQ 0.035 THEN BEGIN
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_0.03sec_rebin_2_b4c.sav'
+ENDIF
+snr_short_smooth = snr_smooth
+IF exposure_time2 EQ 5.0 THEN BEGIN
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_5.00sec_rebin_2_b4c.sav'
+ENDIF ELSE IF exposure_time2 EQ 15.0 THEN BEGIN
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_15.00sec_rebin_2_b4c.sav'
+ENDIF
+snr_long_smooth = snr_smooth
 
 ;;; In the model data one solar radius = 200 px, but we have rebinned so it is 100 px
 solrad = 100 ; px
@@ -59,9 +74,9 @@ sun[where(dist_arr gt solrad * 1.0)] = 1.
 
 ;;; merge the long/short SNR arrays at the merge point using the mask
 ;;; change the arrays below to select different sets of SNRs
-merged_contours = mask * snr_5s_smooth + (1 - mask) * snr_035_smooth
+merged_contours = mask * snr_long_smooth + (1 - mask) * snr_short_smooth
 snr_smooth = merged_contours
-save, snr_smooth, contour_x, contour_y, filename = getenv('SunCET_base') + '/SNR/2011-02-15/Contours/snr_0.03sec_5.00sec_rebin_2_b4c.sav'
+save, snr_smooth, contour_x, contour_y, filename = getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + exposure_time1_str + 'sec_' + exposure_time2_str + 'sec_rebin_2_b4c.sav'
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; the variable above is the one you want for plotting SNR across an authentic composite image ;;;
@@ -112,7 +127,7 @@ loadct, 0
 plot_image, rebin(image5, 750, 750)^0.25
 loadct, 39
 contour, snr_smooth, levels = [10, 30, 100, 300], /overplot, color = 80, c_label = replicate(1, 4), c_charsi = 2
-contour, snr_5s_smooth, levels = [10, 30, 100, 300], /overplot, color = 80, c_label = replicate(1, 4), c_charsi = 2
+contour, snr_long_smooth, levels = [10, 30, 100, 300], /overplot, color = 80, c_label = replicate(1, 4), c_charsi = 2
 contour, dist_arr, levels = [1, 2] * solrad, color = 150, /overplot
 contour, dist_arr, levels = [1.5] * solrad, color = 254, /overplot
 
