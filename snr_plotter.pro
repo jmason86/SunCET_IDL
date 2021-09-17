@@ -110,7 +110,7 @@ snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
 contour_x = findgen(SunCET_image_size[1]/rebin_size)
 contour_y = findgen(SunCET_image_size[1]/rebin_size)
 filename_contours = saveloc + 'snr_' + jpmprintnumber(expsoure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav'
-save, contour_x, contour_y, snr_smooth, filename=filename_countours
+save, contour_x, contour_y, snr_smooth, filename=filename_contours
 message, /INFO, 'Saved file: ' + filename_contours
 
 ;; make a plot 

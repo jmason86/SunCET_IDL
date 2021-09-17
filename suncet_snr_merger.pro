@@ -11,7 +11,8 @@
 ; OPTIONAL INPUTS:
 ;   exposure_time1 [float]: The first of the two exposures times to merge resultant SNRs for
 ;   exposure_time2 [float]: The second of the two exposure times to merge resultant SNRs for
-;
+;   binning [integer]:      The number of pixels binned over (in each direction). Default is 2.
+;   
 ; KEYWORD PARAMETERS:
 ;   None
 ;
@@ -28,7 +29,7 @@
 ; EXAMPLE:
 ;   Just run it
 ;-
-PRO SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2
+PRO SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
 
 ; Defaults
 IF exposure_time1 EQ !NULL THEN BEGIN
@@ -39,22 +40,25 @@ IF exposure_time2 EQ !NULL THEN BEGIN
 ENDIF
 exposure_time1_str = jpmprintnumber(exposure_time1)
 exposure_time2_str = jpmprintnumber(exposure_time2)
+IF binning EQ !NULL THEN BEGIN
+  binning = 2
+ENDIF
 
 ;;; it takes a long time to generate the SNR plots because you have to run the image simulator multiple times
 ;;; so I am just saving them and recycling them
 IF exposure_time1 EQ 0.035 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_0.03sec_rebin_2_b4c.sav'
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_0.03sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 ENDIF
 snr_short_smooth = snr_smooth
 IF exposure_time2 EQ 5.0 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_5.00sec_rebin_2_b4c.sav'
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_5.00sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 ENDIF ELSE IF exposure_time2 EQ 15.0 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_15.00sec_rebin_2_b4c.sav'
+  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_15.00sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 ENDIF
 snr_long_smooth = snr_smooth
 
-;;; In the model data one solar radius = 200 px, but we have rebinned so it is 100 px
-solrad = 100 ; px
+;;; In the model data one solar radius = 200 px, but we have rebinned so it
+solrad = 200./binning ; px
 
 ;;; generate some arrays we will need for plotting and merging
 imsize = size(snr_smooth)
@@ -76,7 +80,9 @@ sun[where(dist_arr gt solrad * 1.0)] = 1.
 ;;; change the arrays below to select different sets of SNRs
 merged_contours = mask * snr_long_smooth + (1 - mask) * snr_short_smooth
 snr_smooth = merged_contours
-save, snr_smooth, contour_x, contour_y, filename = getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + exposure_time1_str + 'sec_' + exposure_time2_str + 'sec_rebin_2_b4c.sav'
+filename_contours = getenv('SunCET_base') + 'SNR/2011-02-15/snr_' + exposure_time1_str + 'sec_' + exposure_time2_str + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
+save, snr_smooth, contour_x, contour_y, filename=filename_contours 
+message, /INFO, 'Saved file: ' + filename_contours
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; the variable above is the one you want for plotting SNR across an authentic composite image ;;;
@@ -89,7 +95,7 @@ graphic = contour(merged_contours, (contour_x - 375)/solrad, (contour_y - 375)/s
 graphic_2 = contour(mask, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = 1, /overplot, color = 'blue', c_label_show = 0)
 graphic_3 = contour(sun, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = 1, /overplot, color = 'goldenrod', c_label_show = 0)
 graphic_4 = contour(dist_arr/solrad, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = [1.5, 2, 2.5, 3.], /overplot, color = 'red', c_label_show = 0)
-
+return
 
 
 ;;; this is just to generate some images for comparison – probably don't use these, it's better to use the 
