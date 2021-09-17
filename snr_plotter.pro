@@ -11,8 +11,10 @@
 ; OPTIONAL INPUTS:
 ;   snr_neighborhood_size [integer]: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis. Default is 3.
 ;                                    This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
-;   rebin_resolution [integer]: Binning in the usual sense. Should usually be snr_neighborhood_size-1. Default is 2.
-;   mirror_coating [string]: Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
+;   rebin_size [integer]:            Binning in the usual sense. Should usually be snr_neighborhood_size-1. Default is 2.
+;   expsoure_time_sec [float]:       Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
+;                                    Default is 15.
+;   mirror_coating [string]:         Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
 ;   
 ; KEYWORD PARAMETERS:
 ;   None
@@ -29,11 +31,12 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
+PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, expsoure_time_sec=expsoure_time_sec, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
 
 ; Defaults
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
+IF expsoure_time_sec EQ !NULL THEN expsoure_time_sec = 15.0
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
 IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
 IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
@@ -50,7 +53,6 @@ restore, dataloc + '/euv_sim_210.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
-exptime = 15.
 rsun = 960./sc_plate_scale
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
@@ -59,7 +61,7 @@ theta = findgen(361) * !pi/180.
 ;; run the simulator
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
 for n = 0, 3 do begin 
-	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure=exptime, mirror_coating=mirror_coating, /no_spike, $
+	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=expsoure_time_sec, mirror_coating=mirror_coating, /no_spike, $
 		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 	synth_image_arr[*, *, n] = image
 endfor
@@ -107,10 +109,11 @@ PSNR = 10 * alog10( local_max^2/MSE^2 )
 snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
 contour_x = findgen(SunCET_image_size[1]/rebin_size)
 contour_y = findgen(SunCET_image_size[1]/rebin_size)
-save, contour_x, contour_y, snr_smooth, filename=saveloc + 'snr_' + jpmprintnumber(exptime) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav' 
+filename_contours = saveloc + 'snr_' + jpmprintnumber(expsoure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav'
+save, contour_x, contour_y, snr_smooth, filename=filename_countours
+message, /INFO, 'Saved file: ' + filename_contours
 
 ;; make a plot 
-
 rsun_use = rsun/rebin_size
 xcen = SunCET_image_size[0]/(rebin_size * 2)
 ycen = SunCET_image_size[1]/(rebin_size * 2)
@@ -126,12 +129,7 @@ c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunC
 			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
             c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
 c.font_size = 16
-i1.save, saveloc + 'snr_image_' + jpmprintnumber(exptime) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
-
-
-
-STOP
-
+i1.save, saveloc + 'snr_image_' + jpmprintnumber(expsoure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
 
 
 ; ; SSW / contour procedure method
