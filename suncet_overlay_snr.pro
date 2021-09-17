@@ -44,7 +44,7 @@ IF mirror_coating EQ !NULL THEN BEGIN
   mirror_coating = 'b4c'
 ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
-  exposure_time_sec = 5.
+  exposure_time_sec = 15.
 ENDIF
 IF snr_levels EQ !NULL THEN BEGIN
   snr_levels = [40, 10]
@@ -65,12 +65,13 @@ dim_y = SunCET_image_size[1]/binning
 
 ; Load the contours and get the filtered image filename
 filename_config = 'snr_0.03sec_' + JPMPrintNumber(exposure_time_sec) + 'sec_rebin_' + JPMPrintNumber(snr_binning, /NO_DECIMALS) + '_' + mirror_coating
-filename = dataloc + '/Contours/' + filename_config + '.sav'
+filename = dataloc + filename_config + '.sav'
 IF file_test(filename) NE 1 THEN BEGIN
   snr_plotter, snr_neighborhood_size=snr_binning, rebin_size=binning, mirror_coating=mirror_coating, dataloc=dataloc_maps, saveloc=dataloc
 ENDIF
 restore, filename
 im_filename = dataloc + 'composite_' + filename_config + '_filtered.png'
+im_filename = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/2011-02-15/214_5_0.03_4_5.00_log.png'
 
 ; Create the image 
 i1 = image(im_filename, dimensions=SunCET_image_size/binning, margin=0)
