@@ -70,6 +70,10 @@ x_arr = findgen(imsize[1], imsize[2]) mod imsize[1]
 y_arr = rotate( findgen(imsize[1], imsize[2]) mod imsize[2], 1)
 dist_arr = sqrt( (x_arr - imsize[1]/2.)^2 + (y_arr - imsize[2]/2.)^2 )
 
+;;; grab snr stats on the disk
+disk_snr = mean(snr_short_smooth[where(dist_arr LT solrad * 0.9)])
+print, 'Disk SNR is ' + JPMPrintNumber(disk_snr, /NO_DECIMALS) + ' for short exposure of ' + JPMPrintNumber(exposure_time1) + ' sec' + ' and binning of ' + JPMPrintNumber(binning, /NO_DECIMALS)
+
 ;;; set the long/short merge point by adjusting the value below
 mask[where(dist_arr gt solrad * 1.5)] = 1.
 
