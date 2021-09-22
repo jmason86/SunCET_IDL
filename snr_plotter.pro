@@ -12,8 +12,9 @@
 ;   snr_neighborhood_size [integer]: Specify the scale in rebinned macropixels over which we compute noise levels for SNR analysis. Default is 3.
 ;                                    This must be an odd number to ensure SNR calculation window remains centered on corresponding image pixels
 ;   rebin_size [integer]:            Binning in the usual sense. Should usually be snr_neighborhood_size-1. Default is 2.
-;   expsoure_time_sec [float]:       Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
+;   exposure_time_sec [float]:       Duration of the exposure. Used to convert from intensity (DN, counts, whatever) / time (sec) to total DN, counters, whatever
 ;                                    Default is 15.
+;   n_images_to_stack [integer]:     The number of images to stack together and median through. Default is 4. 
 ;   mirror_coating [string]:         Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
 ;   
 ; KEYWORD PARAMETERS:
@@ -31,19 +32,20 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, expsoure_time_sec=expsoure_time_sec, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
+PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, exposure_time_sec=exposure_time_sec, n_images_to_stack=n_images_to_stack, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
 
 ; Defaults
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
-IF expsoure_time_sec EQ !NULL THEN expsoure_time_sec = 15.0
+IF exposure_time_sec EQ !NULL THEN exposure_time_sec = 15.0
+IF n_images_to_stack EQ !NULL THEN n_images_to_stack = 4
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
 
 ; James's config
-; IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
 
 ; dans config
-IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'em_maps_2011-02-15/rendered_maps/'
+;IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'em_maps_2011-02-15/rendered_maps/'
 
 IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 
@@ -68,14 +70,9 @@ theta = findgen(361) * !pi/180.
 
 ;; run the simulator
 
-;;; for solar disk
-;synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 10)
-;for n = 0, 9 do begin 
-
-;;; for extended corona
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
-for n = 0, 3 do begin 
-	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=expsoure_time_sec, mirror_coating=mirror_coating, /no_spike, $
+for n = 0, n_images_to_stack-1 do begin 
+	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=exposure_time_sec, mirror_coating=mirror_coating, /no_spike, $
 		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 	synth_image_arr[*, *, n] = image
 endfor
@@ -123,7 +120,7 @@ PSNR = 10 * alog10( local_max^2/MSE^2 )
 snr_smooth = smooth(rebin_pure_image/local_rms, 20, /edge_truncate)
 contour_x = findgen(SunCET_image_size[1]/rebin_size)
 contour_y = findgen(SunCET_image_size[1]/rebin_size)
-filename_contours = saveloc + 'snr_' + jpmprintnumber(expsoure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav'
+filename_contours = saveloc + 'snr_' + jpmprintnumber(exposure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating + '.sav'
 save, contour_x, contour_y, snr_smooth, filename=filename_contours
 message, /INFO, 'Saved file: ' + filename_contours
 
@@ -136,14 +133,14 @@ saturated_normal = 65535L
 saturated_log = alog10(saturated_normal)
 
 ; IDL plotting function method
-i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
-	         background_color='black', margin=0, window_title='SNR Contours')
-FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
-c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
-			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
-            c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
-c.font_size = 16
-i1.save, saveloc + 'snr_image_' + jpmprintnumber(expsoure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
+;i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
+;	         background_color='black', margin=0, window_title='SNR Contours')
+;FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
+;c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
+;			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
+;            c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
+;c.font_size = 16
+;i1.save, saveloc + 'snr_image_' + jpmprintnumber(exposure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
 
 
 ; ; SSW / contour procedure method
