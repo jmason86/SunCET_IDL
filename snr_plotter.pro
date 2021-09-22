@@ -38,7 +38,13 @@ if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
 IF expsoure_time_sec EQ !NULL THEN expsoure_time_sec = 15.0
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
-IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+
+; James's config
+; IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+
+; dans config
+IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'em_maps_2011-02-15/rendered_maps/'
+
 IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 
 ; ~Constants
@@ -53,12 +59,20 @@ restore, dataloc + '/euv_sim_210.sav', /VERBOSE
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
+; exptime = 0.035  ; for solar disk
+exptime = 5
 rsun = 960./sc_plate_scale
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
 ;; it has a bad variable name but I don't want to change it 
 
 ;; run the simulator
+
+;;; for solar disk
+;synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 10)
+;for n = 0, 9 do begin 
+
+;;; for extended corona
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
 for n = 0, 3 do begin 
 	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=expsoure_time_sec, mirror_coating=mirror_coating, /no_spike, $
