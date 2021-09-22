@@ -46,15 +46,9 @@ ENDIF
 
 ;;; it takes a long time to generate the SNR plots because you have to run the image simulator multiple times
 ;;; so I am just saving them and recycling them
-IF exposure_time1 EQ 0.035 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_0.03sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
-ENDIF
+restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + JPMPrintNumber(exposure_time1) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 snr_short_smooth = snr_smooth
-IF exposure_time2 EQ 5.0 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_5.00sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
-ENDIF ELSE IF exposure_time2 EQ 15.0 THEN BEGIN
-  restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_15.00sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
-ENDIF
+restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + JPMPrintNumber(exposure_time2) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 snr_long_smooth = snr_smooth
 
 ;;; In the model data one solar radius = 200 px, but we have rebinned so it
