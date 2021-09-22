@@ -44,8 +44,8 @@ IF binning EQ !NULL THEN BEGIN
 ENDIF
 
 ; Generate the SNR contours 
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time1
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time2
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time1, n_images_to_stack=10
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time2, n_images_to_stack=4
 
 ; Merge the SNR contours
 SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
