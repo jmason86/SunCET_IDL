@@ -70,7 +70,7 @@ theta = findgen(361) * !pi/180.
 
 ;; run the simulator
 
-synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], 4)
+synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], n_images_to_stack)
 for n = 0, n_images_to_stack-1 do begin 
 	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=exposure_time_sec, mirror_coating=mirror_coating, /no_spike, $
 		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
