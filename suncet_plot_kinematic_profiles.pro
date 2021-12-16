@@ -12,7 +12,8 @@
 ;   None
 ;
 ; KEYWORD PARAMETERS:
-;   None
+;   NO_DASHED_LINES: Set this if you want the plot to be one solid line, rather than doing a dash
+;                    between the AIA and LASCO C2 FOVs
 ;
 ; OUTPUTS:
 ;   Plots on screen and saved on disk
@@ -26,7 +27,7 @@
 ; EXAMPLE:
 ;   Just run it
 ;-
-PRO SunCET_plot_kinematic_profiles
+PRO SunCET_plot_kinematic_profiles, NO_DASHED_LINES=NO_DASHED_LINES
 
 ; Defaults
 dataloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/Kinematic Profiles/'
@@ -35,7 +36,11 @@ csrloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020
 mhdloc = '/Users/jmason86/Dropbox/Research/Data/SunCET Base Data/MHD/'
 fontSize = 28
 thickness = 4
+
+; Constants
 rs2km = 695700.
+aiaOuterFov = 1.28125
+lascoC2InnerFov = 2.39
 
 ; Load the data
 restore, dataloc + 'observation_csv_template.sav'
@@ -51,8 +56,6 @@ t_model_minutes = t_model / 60.
 height_model_km = height_model * rs2km
 speed_model = deriv(t_model, height_model_km)
 acceleration_model = deriv(t_model, speed_model)
-
-
 
 ;
 ; Modify some real MHD results for animated traces
@@ -74,23 +77,31 @@ acceleration = interpol(acceleration, time, time_int)
 time = time_int
 
 w = window(DIMENSIONS = [1200, 1200], background_color='black', FONT_SIZE=fontSize, /BUFFER)
-p1 = plot(time, height, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.13, 0.74, 0.95, 0.99], $
+p1 = plot(time, height, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.05, 0.74, 0.87, 0.99], $
           xshowtext=0, xrange=minmax(time), xcolor='white', $
           yrange=[1, 5], ycolor='white', $
           axis_style=4)
-p1y = axis('Y', target=p1, color='white', minor=0, tickfont_size=fontSize, location=0)
-p2 = plot(time, speed, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.13, 0.41, 0.95, 0.66], $
+p1_chunk2 = plot(time, height, thick=thickness, /OVERPLOT, color='white', linestyle='--', /NODATA)
+p1_chunk3 = plot(time, height, thick=thickness, /OVERPLOT, color='white', /NODATA)
+p1y = axis('Y', target=p1, color='white', minor=0, tickfont_size=fontSize, location='right')
+p2 = plot(time, speed, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.05, 0.41, 0.87, 0.66], $
           xshowtext=0, xrange=minmax(time), xcolor='white', $
           yrange=[0, 2], ycolor='white', $
           axis_style=4)
-p2y = axis('Y', target=p2, color='white', minor=0, tickfont_size=fontSize, location=0)
-p3 = plot(time, acceleration, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.13, 0.08, 0.95, 0.33], $
+p2_chunk2 = plot(time, speed, thick=thickness, /OVERPLOT, color='white', linestyle='--', /NODATA)
+p2_chunk3 = plot(time, speed, thick=thickness, /OVERPLOT, color='white', /NODATA)
+p2y = axis('Y', target=p2, color='white', minor=0, tickfont_size=fontSize, location='right')
+p3 = plot(time, acceleration, thick=thickness, /CURRENT, font_size=fontSize, 'white', font_color='white', position=[0.05, 0.08, 0.87, 0.33], $
           xtitle='elapsed time [minutes]', xrange=minmax(time), xcolor='white', xminor=0, $
           yrange=[-2, 8], ycolor='white', yminor=0, $
-          axis_style=1)
-t1 = text(0.04, 0.77, 'height [R$_\Sun$]', orientation=90, font_size=fontSize, color='white')
-t2 = text(0.04, 0.42, 'speed [Mm s$^{-1}$]', orientation=90, font_size=fontSize, color='white')
-t3 = text(0.04, 0.05, 'acceration [km s$^{-2}$]', orientation=90, font_size=fontSize, color='white')
+          axis_style=4)
+p3_chunk2 = plot(time, acceleration, thick=thickness, /OVERPLOT, color='white', linestyle='--', /NODATA)
+p3_chunk3 = plot(time, acceleration, thick=thickness, /OVERPLOT, color='white', /NODATA)
+p3y = axis('Y', target=p3, color='white', minor=0, tickfont_size=fontSize, location='right')
+p3x = axis('X', target=p3, color='white', minor=0, tickfont_size=fontSize, location='bottom', title='elapsed time [minutes]')
+t1 = text(0.96, 0.77, 'height [R$_\Sun$]', orientation=270, alignment=1, font_size=fontSize, color='white')
+t2 = text(0.96, 0.42, 'speed [Mm s$^{-1}$]', orientation=270, alignment=1, font_size=fontSize, color='white')
+t3 = text(0.96, 0.05, 'acceration [km s$^{-2}$]', orientation=270, alignment=1, font_size=fontSize, color='white')
 
 ; Make a nice grid like modern plots on NYTimes and 538
 xb = p3.convertcoord(10, -2, /DATA, /TO_NORMAL)
@@ -136,12 +147,41 @@ p1l.order, /SEND_TO_BACK
 p1l = plot(p1.xrange, [4, 4], color='dim grey', thick=2, transparency=30, overplot=p1)
 p1l.order, /SEND_TO_BACK
 
-FOR i = 0, n_frames - 1 DO BEGIN
-  p1.setdata, time[0:i], height[0:i]
-  p2.setdata, time[0:i], speed[0:i]
-  p3.setdata, time[0:i], acceleration[0:i]
-  p1.save, saveloc + '/animation/' + JPMPrintNumber(i, /NO_DECIMALS) + '.png', /TRANSPARENT, RESOLUTION=100
-ENDFOR
+IF keyword_set(NO_DASHED_LINES) THEN BEGIN
+  FOR i = 0, n_frames - 1 DO BEGIN
+    p1.setdata, time[0:i], height[0:i]
+    p2.setdata, time[0:i], speed[0:i]
+    p3.setdata, time[0:i], acceleration[0:i]
+    p1.save, saveloc + '/animation/' + JPMPrintNumber(i, /NO_DECIMALS) + '.png', /TRANSPARENT, RESOLUTION=100
+  ENDFOR
+ENDIF ELSE BEGIN
+  chunk1 = where(height LT aiaOuterFov)
+  chunk2 = where(height GE aiaOuterFov and height LE lascoC2InnerFov)
+  chunk3 = where(height GT lascoC2InnerFov)
+  
+  t = 0
+  FOR i = 0, n_elements(chunk1) - 1 DO BEGIN
+    p1.setdata, time[chunk1[0:i]], height[chunk1[0:i]]
+    p2.setdata, time[chunk1[0:i]], speed[chunk1[0:i]]
+    p3.setdata, time[chunk1[0:i]], acceleration[chunk1[0:i]]
+    p1.save, saveloc + '/animation/' + JPMPrintNumber(t, /NO_DECIMALS) + '.png', /TRANSPARENT, RESOLUTION=100
+    t++
+  ENDFOR
+  FOR i = 0, n_elements(chunk2) - 1 DO BEGIN
+    p1_chunk2.setdata, time[chunk2[0:i]], height[chunk2[0:i]]
+    p2_chunk2.setdata, time[chunk2[0:i]], speed[chunk2[0:i]]
+    p3_chunk2.setdata, time[chunk2[0:i]], acceleration[chunk2[0:i]]
+    p1.save, saveloc + '/animation/' + JPMPrintNumber(t, /NO_DECIMALS) + '.png', /TRANSPARENT, RESOLUTION=100
+    t++
+  ENDFOR
+  FOR i = 0, n_elements(chunk3) - 1 DO BEGIN
+    p1_chunk3.setdata, time[chunk3[0:i]], height[chunk3[0:i]]
+    p2_chunk3.setdata, time[chunk3[0:i]], speed[chunk3[0:i]]
+    p3_chunk3.setdata, time[chunk3[0:i]], acceleration[chunk3[0:i]]
+    p1.save, saveloc + '/animation/' + JPMPrintNumber(t, /NO_DECIMALS) + '.png', /TRANSPARENT, RESOLUTION=100
+    t++
+  ENDFOR
+ENDELSE
 STOP
 
 
