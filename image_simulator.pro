@@ -94,7 +94,10 @@ if ~keyword_set(missing_line_scale_factor) then  missing_line_scale_factor = 1.3
 ;
 ; Telescope and detector parameters
 ;
-sc_aperture = 44.9                 ; [cm^2]
+entrance_aperture = 9.6            ; [cm] diameter, AKA entrance pupil diameter
+primary_mirror_truncation = 2.47   ; [cm^2] area lost due the primary mirror being so big it has to be truncated from the nominal circle
+secondary_mirror_obscuration = 4.8 ; [cm] diameter, the secondary mirror blocks some of the light coming into the system
+sc_aperture = entrance_aperture*!PI^2. - secondary_mirror_obscuration*!PI^2. - primary_mirror_truncation ; [cm^2] effective aperture
 sc_image_dimensions = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 sc_reflectivity = 0.223 * 0.223    ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent

@@ -32,7 +32,7 @@ PRO SunCET_plot_mirror_coating_reflectance
 ; Defaults
 dataloc = getenv('SunCET_base') + 'Mirror_Data/'
 saveloc = dataloc
-csrloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/latex/images/'
+csrloc = '/Users/masonjp2/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/latex/images/'
 fontSize = 16
 
 ; Load data
