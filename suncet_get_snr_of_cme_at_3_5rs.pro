@@ -35,7 +35,7 @@ IF exposure_time1 EQ !NULL THEN BEGIN
   exposure_time1 = 0.035
 ENDIF
 IF exposure_time2 EQ !NULL THEN BEGIN
-  exposure_time2 = 5.0
+  exposure_time2 = 15.0
 ENDIF
 exposure_time1_str = jpmprintnumber(exposure_time1)
 exposure_time2_str = jpmprintnumber(exposure_time2)
@@ -44,8 +44,8 @@ IF binning EQ !NULL THEN BEGIN
 ENDIF
 
 ; Generate the SNR contours 
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time1, n_images_to_stack=10
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, expsoure_time_sec=exposure_time2, n_images_to_stack=4
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time1, n_images_to_stack=10
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time2, n_images_to_stack=4
 
 ; Merge the SNR contours
 SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
