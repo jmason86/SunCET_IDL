@@ -12,6 +12,8 @@
 ;   exposure_time1 [float]: The first of the two exposures times to merge resultant SNRs for
 ;   exposure_time2 [float]: The second of the two exposure times to merge resultant SNRs for
 ;   binning [integer]:      The number of pixels binned over (in each direction). Default is 2.
+;   dataloc [string]:       Path to the SNR contours that are loaded as input.
+;   saveloc [string]:       Path to save the output (_merged_ SNR contours) to.
 ;   
 ; KEYWORD PARAMETERS:
 ;   None
@@ -29,7 +31,7 @@
 ; EXAMPLE:
 ;   Just run it
 ;-
-PRO SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
+PRO SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning, dataloc=dataloc, saveloc=saveloc
 
 ; Defaults
 IF exposure_time1 EQ !NULL THEN BEGIN
@@ -43,12 +45,18 @@ exposure_time2_str = jpmprintnumber(exposure_time2)
 IF binning EQ !NULL THEN BEGIN
   binning = 2
 ENDIF
+IF dataloc EQ !NULL THEN BEGIN
+  dataloc = getenv('SunCET_base') + '/SNR/dimmest/'
+ENDIF
+IF saveloc EQ !NULL THEN BEGIN
+  saveloc = getenv('SunCET_base') + '/SNR/dimmest/'
+ENDIF
 
 ;;; it takes a long time to generate the SNR plots because you have to run the image simulator multiple times
 ;;; so I am just saving them and recycling them
-restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + JPMPrintNumber(exposure_time1) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
+restore, dataloc + '/snr_' + JPMPrintNumber(exposure_time1) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 snr_short_smooth = snr_smooth
-restore, getenv('SunCET_base') + '/SNR/2011-02-15/snr_' + JPMPrintNumber(exposure_time2) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
+restore, dataloc + '/snr_' + JPMPrintNumber(exposure_time2) + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 snr_long_smooth = snr_smooth
 
 ;;; In the model data one solar radius = 200 px, but we have rebinned so it
@@ -78,7 +86,7 @@ sun[where(dist_arr gt solrad * 1.0)] = 1.
 ;;; change the arrays below to select different sets of SNRs
 merged_contours = mask * snr_long_smooth + (1 - mask) * snr_short_smooth
 snr_smooth = merged_contours
-filename_contours = getenv('SunCET_base') + 'SNR/2011-02-15/snr_' + exposure_time1_str + 'sec_' + exposure_time2_str + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
+filename_contours = saveloc + '/snr_' + exposure_time1_str + 'sec_' + exposure_time2_str + 'sec_rebin_' + JPMPrintNumber(binning, /NO_DECIMALS) + '_b4c.sav'
 save, snr_smooth, contour_x, contour_y, filename=filename_contours 
 message, /INFO, 'Saved file: ' + filename_contours
 
@@ -89,10 +97,10 @@ message, /INFO, 'Saved file: ' + filename_contours
 
 ;;; Plot the contours, and some other details to help show how things fit together
 graphic = contour(merged_contours, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = [10, 30, 100, 300], c_label_show = [1, 1, 1, 1], $
-	aspect_ratio = 1, /xstyle, /ystyle, color = 'black')
+	                aspect_ratio = 1, /xstyle, /ystyle, color = 'black')
 graphic_2 = contour(mask, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = 1, /overplot, color = 'blue', c_label_show = 0)
 graphic_3 = contour(sun, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = 1, /overplot, color = 'goldenrod', c_label_show = 0)
-graphic_4 = contour(dist_arr/solrad, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = [1.5, 2, 2.5, 3.], /overplot, color = 'red', c_label_show = 0)
+graphic_4 = contour(dist_arr/solrad, (contour_x - 375)/solrad, (contour_y - 375)/solrad, c_value = [2, 3, 3.5], /overplot, color = 'red', c_label_show = 0)
 return
 
 
@@ -103,7 +111,7 @@ return
 snr_neighborhood_size = 3
 rebin_size = 2
 mirror_coating = 'b4c'
-dataloc = getenv('SunCET_base') + '/MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+dataloc = getenv('SunCET_base') + '/MHD/dimmest/Rendered_EUV_Maps/'
 SunCET_image_size = [1500, 1500]
 restore, dataloc + '/euv_sim_150.sav', /VERBOSE
 

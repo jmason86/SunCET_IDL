@@ -16,6 +16,8 @@
 ;                                    Default is 15.
 ;   n_images_to_stack [integer]:     The number of images to stack together and median through. Default is 4. 
 ;   mirror_coating [string]:         Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
+;   dataloc [string]:                Path to the rendered EUV maps that are loaded as input.
+;   saveloc [string]:                Path to save the output (SNR contours) to.
 ;   
 ; KEYWORD PARAMETERS:
 ;   None
@@ -42,12 +44,12 @@ IF n_images_to_stack EQ !NULL THEN n_images_to_stack = 4
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
 
 ; James's config
-IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/dimmest/Rendered_EUV_Maps/'
 
 ; dans config
 ;IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'em_maps_2011-02-15/rendered_maps/'
 
-IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
+IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/'
 
 ; ~Constants
 SunCET_image_size = [1500, 1500]
@@ -57,7 +59,7 @@ if (snr_neighborhood_size mod 2) eq 0 then message, "SNR Neighborhood must be od
 
 ;; recover an EUV map 
 ;; leading edge of CME is approaching the edge of our sim at frame 150
-restore, dataloc + '/euv_sim_210.sav', /VERBOSE
+restore, dataloc + '/euv_sim_300.sav'
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
