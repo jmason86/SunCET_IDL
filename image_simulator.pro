@@ -91,7 +91,7 @@ sim_dimensions = size(sim_array, /DIMENSIONS)
 num_waves = n_elements(waves)
 sim_fov_deg = sim_dimensions[0] * (sim_plate_scale / 3600.) ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
 sim_cm2_per_pix = (sim_plate_scale/average_rsun_arc * rsun_cm)^2 ; [cm^2] physical area per simulation pixel 
-if ~keyword_set(missing_line_scale_factor) then missing_line_scale_factor = 1.3 ; empirical scale factor to account for contributions from unmodeled minor lines 
+if ~keyword_set(missing_line_scale_factor) then  missing_line_scale_factor = 1.3 ; empirical scale factor to account for contributions from unmodeled minor lines 
 
 ;
 ; Telescope and detector parameters
