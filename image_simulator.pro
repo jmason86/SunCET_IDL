@@ -74,10 +74,11 @@ no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
 suvi_mirror = keyword_set(SUVI_MIRROR)
 
 ; Constants
-h = 6.62606957d-34 ; [Js]
-c = 299792458.d    ; [m/s]
-j2ev = 6.242d18    ; [J/ev] Conversion from Joules to electron volts
-j2erg = 1e7        ; [J/erg] Conversion from Joules to ergs
+h = 6.62606957d-34     ; [Js]
+c = 299792458.d        ; [m/s]
+j2ev = 6.242d18        ; [ev/J] Conversion from Joules to electron volts
+j2erg = 1e7            ; [erg/J] Conversion from Joules to ergs
+arcsec2rad = 4.8481e-6 ; [radian/arcsec] Conversion from arcsec to radians
 fixed_seed1 = 979129L
 fixed_seed2 = 1122008L
 one_au_cm = 1.496e13 ; [cm] Earth-Sun Distance in cm
@@ -155,6 +156,7 @@ ENDELSE
 sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
 
 ; Telescope/detector calculations
+sc_plate_scale_sr = (sc_plate_scale * arcsec2rad)^2.           ; [sr/pixel^2] Even though it should be labeled as /pixel^2 everywhere, convention is to just call this /pixel
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
 sc_eff_area =  sc_aperture * sc_reflectivity_wvl^2. * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
@@ -174,6 +176,9 @@ im_array = dblarr(sc_image_dimensions[0], sc_image_dimensions[1], n_elements(sim
 FOR i = 0, num_waves - 1 DO BEGIN
   im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/sr] - no change to the units of the actual data here
 ENDFOR
+
+; Drop the sr and bring in the /pixel2 instead. This also accounts for scaling to 1 AU. 
+im_array *= sc_plate_scale_sr ; [erg/cm2/s/pixel2]
 
 ; Apply the PSF
 if ~no_psf then begin 
@@ -225,7 +230,7 @@ endif
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
-  im_array[*, *, i] = im_array[*, *, i] / (j2erg * (h*c / (waves[i] * 1e-10))) ; [photons/cm2/s/sr]
+  im_array[*, *, i] = im_array[*, *, i] / (j2erg * (h*c / (waves[i] * 1e-10))) ; [photons/cm2/s/pixel2]
 ENDFOR
 
 ;;; 2022-07-22 The below turns out to be wrong. The input units should've been photons/cm2/s/sr, not /pix. 
@@ -234,7 +239,7 @@ ENDFOR
 ;im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
 
 ; 2022-07-22 correct way of doing what is just above -- convert the "flux" to 1 AU
-im_array *= one_au_sun_sr ; [photons/cm2/s]
+; im_array *= one_au_sun_sr ; [photons/cm2/s]
 
 
 ;
