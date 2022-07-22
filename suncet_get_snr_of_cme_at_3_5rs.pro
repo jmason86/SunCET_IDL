@@ -33,6 +33,7 @@
 ;   Just run it!
 ;-
 PRO SunCET_get_snr_of_cme_at_3_5Rs, mhd_sim=mhd_sim, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
+tic
 
 ; Defaults
 IF mhd_sim EQ !NULL THEN BEGIN
@@ -79,4 +80,5 @@ SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2,
 ; Get the SNR of the CME at 3.5 Rs
 SunCET_plot_snr_trace, snr_binning=binning+1, binning=binning, exposure_time1=exposure_time1, exposure_time2=exposure_time2, dataloc_rendered_maps=dataloc_rendered_maps, dataloc_snr=dataloc_snr, saveloc=saveloc
 
+toc
 END

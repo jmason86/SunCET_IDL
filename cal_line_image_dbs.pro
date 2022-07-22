@@ -65,7 +65,7 @@ aia_sparse_em_init, timedepend=UTtime, /evenorm, $
 lgtaxis = aia_sparse_em_lgtaxis()
 
 files=file_search(dataloc,'*.sav')
-MM=n_elements(files)
+MM=n_elements(files) ; [cm^-5]
 
 for i=0,MM-1 do begin
   print,'Processing '+strtrim(i+1,2)+' / '+strtrim(MM,2)
@@ -77,7 +77,7 @@ for i=0,MM-1 do begin
 
   for j = 0, n_elements(lines) - 1 do begin
     map_out = make_map(euvimage[*, *, j], dx=dxy, dy=dxy, time=ts_new)
-    rendered_maps[*, *, j] = map_out.data
+    rendered_maps[*, *, j] = map_out.data ; [erg/s/cm2/sr]
   endfor
 
   map_metadata = map_out

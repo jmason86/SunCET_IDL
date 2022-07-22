@@ -139,7 +139,7 @@ FOR movie_index = 0, last_movie_index, bigger_num_to_stack DO BEGIN
   
   ; Loop through time
   FOR time_index = 0, bigger_num_to_stack - 1 DO BEGIN
-    restore, files_one_integration[time_index] ; [erg/cm2/s/pixel] -- simulation pixel
+    restore, files_one_integration[time_index] ; [erg/cm2/s/sr]
     
     ; Pull out the simulation images, plate scale, and wavelengths
     sim_array = temporary(rendered_maps)

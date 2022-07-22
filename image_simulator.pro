@@ -7,7 +7,7 @@
 ;
 ; INPUTS:
 ;   sim_array [dblarr]:      The 2D simulation images to generate noise for and merge, stacked into different wavelengths (if applicable) [x, y, lambda]
-;                            Intensity units should be [erg/cm2/s/pix], where pix is simulation pixel
+;                            Intensity units should be [erg/cm2/s/sr]
 ;   sim_plate_scale [float]: The plate scale of the input simulation in arcsec -- i.e., how many arcsecs does a single pixel subtend?
 ;   waves [fltarr]:          Array with wavelengths (in Angstroms) of each individual image in sim_array
 ; 
@@ -83,6 +83,7 @@ fixed_seed2 = 1122008L
 one_au_cm = 1.496e13 ; [cm] Earth-Sun Distance in cm
 average_rsun_arc = 959.63 ; [arcsec] Average solar radius in arcsecons
 rsun_cm = 6.957e10 ; [cm] solar radius in cm 
+one_au_sun_sr = 6.7993e-5 ; [sr] angular diameter of sun at 1 AU in steradians
 
 ; Simulation parameters
 sim_dimensions = size(sim_array, /DIMENSIONS)
@@ -94,11 +95,11 @@ if ~keyword_set(missing_line_scale_factor) then  missing_line_scale_factor = 1.3
 ;
 ; Telescope and detector parameters
 ;
-entrance_aperture = 9.5            ; [cm] diameter, AKA entrance pupil diameter
+entrance_aperture = 6.5            ; [cm] diameter, AKA entrance pupil diameter
 primary_mirror_truncation = 0.0    ; [cm^2] area lost due the primary mirror being so big it has to be truncated from the nominal circle
 ;secondary_mirror_obscuration = 4.8 ; [cm] diameter, the secondary mirror blocks some of the light coming into the system
 ;sc_aperture = entrance_aperture*!PI^2. - secondary_mirror_obscuration*!PI^2. - primary_mirror_truncation ; [cm^2] effective aperture
-secondary_mirror_obscuration = 0.2 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
+secondary_mirror_obscuration = 0.35 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
 sc_aperture = (entrance_aperture*!PI^2 * (1 - secondary_mirror_obscuration)) - primary_mirror_truncation
 sc_image_dimensions = [1500, 1500] ; [pixels]
 SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
@@ -171,7 +172,7 @@ ENDFOR
 ; Rescale image from simulation resolution to instrument resolution (the plate scales... how many degress does a single pixel subtend?)
 im_array = dblarr(sc_image_dimensions[0], sc_image_dimensions[1], n_elements(sim_array[0, 0, *]))
 FOR i = 0, num_waves - 1 DO BEGIN
-  im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/pix] -- SunCET pixel now
+  im_array[*, *, i] = congrid(sim_array_punchout[*, *, i] * (sc_plate_scale/sim_plate_scale)^2., sc_image_dimensions[0], sc_image_dimensions[1], cubic=-0.5) ; [erg/cm2/s/sr] - no change to the units of the actual data here
 ENDFOR
 
 ; Apply the PSF
@@ -224,12 +225,17 @@ endif
 
 ; Convert from erg to photons
 FOR i = 0, num_waves - 1 DO BEGIN
-  im_array[*, *, i] = im_array[*, *, i] / (j2erg * (h*c / (waves[i] * 1e-10))) ; [photons/cm2/s/pix]
+  im_array[*, *, i] = im_array[*, *, i] / (j2erg * (h*c / (waves[i] * 1e-10))) ; [photons/cm2/s/sr]
 ENDFOR
 
+;;; 2022-07-22 The below turns out to be wrong. The input units should've been photons/cm2/s/sr, not /pix. 
 ; Convert simulation into pixels observed at Earth, i.e., scale the flux down according to distance from the source
 ; sim enters in [photons/cm2/s/pix] and is multiplied by [cm^2 (in simulation) / cm^2 (at earth)]
-im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
+;im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
+
+; 2022-07-22 correct way of doing what is just above -- convert the "flux" to 1 AU
+im_array *= one_au_sun_sr ; [photons/cm2/s]
+
 
 ;
 ; Start creating images
@@ -238,7 +244,7 @@ im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
 ; Apply effective area and exposure time
 sc_phot_images = im_array
 FOR i = 0, num_waves - 1 DO BEGIN
-  sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area[i] * exposure_time_sec ; [photons / pixel (per lambda)]
+  sc_phot_images[*, *, i] = im_array[*, *, i] * sc_eff_area[i] * exposure_time_sec ; [photons / (per lambda)]
 ENDFOR
 
 ; TODO: Add in scattered light psf here, accounting for secondary mirror and spider mounts
