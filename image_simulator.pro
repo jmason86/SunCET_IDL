@@ -233,14 +233,6 @@ FOR i = 0, num_waves - 1 DO BEGIN
   im_array[*, *, i] = im_array[*, *, i] / (j2erg * (h*c / (waves[i] * 1e-10))) ; [photons/cm2/s/pixel2]
 ENDFOR
 
-;;; 2022-07-22 The below turns out to be wrong. The input units should've been photons/cm2/s/sr, not /pix. 
-; Convert simulation into pixels observed at Earth, i.e., scale the flux down according to distance from the source
-; sim enters in [photons/cm2/s/pix] and is multiplied by [cm^2 (in simulation) / cm^2 (at earth)]
-;im_array = im_array * (sim_cm2_per_pix) / one_au_cm^2 ; [photons/cm2/s/pix]
-
-; 2022-07-22 correct way of doing what is just above -- convert the "flux" to 1 AU
-; im_array *= one_au_sun_sr ; [photons/cm2/s]
-
 
 ;
 ; Start creating images
