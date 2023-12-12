@@ -16,6 +16,7 @@
 ;   exposure_time1 [float]: The first of the two exposures times to merge resultant SNRs for
 ;   exposure_time2 [float]: The second of the two exposure times to merge resultant SNRs for
 ;   binning [integer]:      The number of pixels binned over (in each direction). Default is 2.
+;   mirror_coating [string]: Which mirror coating to use. Either 'B4C' (Default; shorthand for B4C/Mo/Al), 'SiMo', or 'AlZr'. Case insensitive.
 ;
 ; KEYWORD PARAMETERS:
 ;   None
@@ -32,7 +33,7 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO SunCET_get_snr_of_cme_at_3_5Rs, mhd_sim=mhd_sim, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning
+PRO SunCET_get_snr_of_cme_at_3_5Rs, mhd_sim=mhd_sim, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning, mirror_coating=mirror_coating
 tic
 
 ; Defaults
@@ -50,18 +51,21 @@ exposure_time2_str = jpmprintnumber(exposure_time2)
 IF binning EQ !NULL THEN BEGIN
   binning = 2
 ENDIF
+IF mirror_coating EQ !NULL THEN BEGIN
+  mirror_coating = 'b4c_rigaku_surrogate_measurement'
+ENDIF
 
 ; Directory config
 IF mhd_sim EQ 'dimmest' THEN BEGIN
-  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/dimmest/Rendered_EUV_Maps/'
+  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/dimmest/rendered_euv_maps/'
   dataloc_snr = getenv('SunCET_base') + '/SNR/dimmest/'
   saveloc = getenv('SunCET_base') + 'SNR/dimmest/'
 ENDIF ELSE IF mhd_sim EQ 'bright_slow' THEN BEGIN
-  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/bright_slow/Rendered_EUV_Maps/'
+  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/bright_slow/rendered_euv_maps/'
   dataloc_snr = getenv('SunCET_base') + '/SNR/bright_slow/'
   saveloc = getenv('SunCET_base') + 'SNR/bright_slow/'
 ENDIF ELSE IF mhd_sim EQ 'bright_fast' THEN BEGIN
-  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/bright_fast/Rendered_EUV_Maps/'
+  dataloc_rendered_maps = getenv('SunCET_base') + 'MHD/bright_fast/rendered_euv_maps/'
   dataloc_snr = getenv('SunCET_base') + '/SNR/bright_fast/'
   saveloc = getenv('SunCET_base') + 'SNR/bright_fast/'
 ENDIF ELSE BEGIN
@@ -71,14 +75,14 @@ ENDELSE
 
 
 ; Generate the SNR contours 
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time1, n_images_to_stack=10, dataloc=dataloc_rendered_maps, saveloc=saveloc
-snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time2, n_images_to_stack=4, dataloc=dataloc_rendered_maps, saveloc=saveloc
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time1, mirror_coating=mirror_coating, n_images_to_stack=10, dataloc=dataloc_rendered_maps, saveloc=saveloc
+snr_plotter, snr_neighborhood_size=binning+1, rebin_size=binning, exposure_time_sec=exposure_time2, mirror_coating=mirror_coating, n_images_to_stack=4, dataloc=dataloc_rendered_maps, saveloc=saveloc
 
 ; Merge the SNR contours
-SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning, dataloc=dataloc_snr, saveloc=saveloc
+SunCET_snr_merger, exposure_time1=exposure_time1, exposure_time2=exposure_time2, binning=binning, mirror_coating=mirror_coating, dataloc=dataloc_snr, saveloc=saveloc
 
 ; Get the SNR of the CME at 3.5 Rs
-SunCET_plot_snr_trace, snr_binning=binning+1, binning=binning, exposure_time1=exposure_time1, exposure_time2=exposure_time2, dataloc_rendered_maps=dataloc_rendered_maps, dataloc_snr=dataloc_snr, saveloc=saveloc
+SunCET_plot_snr_trace, snr_binning=binning+1, binning=binning, exposure_time1=exposure_time1, exposure_time2=exposure_time2, mirror_coating=mirror_coating, dataloc_rendered_maps=dataloc_rendered_maps, dataloc_snr=dataloc_snr, saveloc=saveloc
 
 toc
 END
