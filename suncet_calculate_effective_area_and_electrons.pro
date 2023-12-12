@@ -41,8 +41,6 @@ c = 299792458.d        ; [m/s]
 j2ev = 6.242d18        ; [ev/J] Conversion from Joules to electron volts
 j2erg = 1e7            ; [erg/J] Conversion from Joules to ergs
 arcsec2rad = 4.8481e-6 ; [radian/arcsec] Conversion from arcsec to radians
-fixed_seed1 = 979129L
-fixed_seed2 = 1122008L
 one_au_cm = 1.496e13 ; [cm] Earth-Sun Distance in cm
 average_rsun_arc = 959.63 ; [arcsec] Average solar radius in arcsecons
 rsun_cm = 6.957e10 ; [cm] solar radius in cm
@@ -54,16 +52,19 @@ solar_spectrum = suncet_read_whi_reference_spectrum()
 ; Instrument parameters
 entrance_aperture = 6.5 ; [cm] diameter, AKA entrance pupil diameter
 secondary_mirror_obscuration = 0.413 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
-aperture = (entrance_aperture*!PI^2 * (1 - secondary_mirror_obscuration))
-mesh_transmission =  0.98 ; [% but as a fraction] 70 nm polyimide = 0.47, 150 nm aluminum = 0.78, 5lpi nickel mesh = 0.98
+aperture = (!PI * (entrance_aperture/2.)^2. * (1 - secondary_mirror_obscuration))
+mesh_transmission =  0.98 ; [% but as a fraction] 5lpi nickel mesh = 0.98, 70 LPI nickel mesh = 0.83
 quantum_efficiency = 0.85
 exposure_time = 15. ; [seconds]
 
 ; Load and interpolate filter transmission data
 restore, base_path + 'filter_transmission/filter_log_template.sav'
-single_filter_transmission = read_ascii(base_path + 'filter_transmission/filter_transmittance_log.csv', template=filter_log_template) ; 100 nm Al, 30 nm Carbon
+single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.1-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
 filter_wavelength = single_filter_transmission.wavelength_angstrom / 10. ; [nm]
-filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * mesh_transmission
+carbon_transmission = read_ascii(base_path + 'filter_transmission/C_20nm_thick_0.01-2066nm_range.csv', template=filter_log_template) ; 5 nm C
+carbon_wavelength = carbon_transmission.wavelength_angstrom / 10. ; [nm]
+carbon_transmission = reform(interpol(carbon_transmission.transmittance, carbon_wavelength, filter_wavelength))
+filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * carbon_transmission * mesh_transmission
 filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, solar_spectrum.wavelength))
 
 ; Load and interpolate mirror reflectivity data
@@ -104,7 +105,7 @@ ENDELSE
 mirror_reflectivity = reform(interpol(reflect, r_wave, solar_spectrum.wavelength))
 
 ; Effective area calculation
-effective_area = aperture * mirror_reflectivity^2. * filter_transmission ; [cm^2]
+effective_area = (aperture * mirror_reflectivity^2. * filter_transmission) > 0 ; [cm^2]
 quantum_yield = (h*c / (solar_spectrum.wavelength * 1e-9)) * j2ev / 3.63 ; [e-/phot] Quantum yield: how many electrons are produced for each abs
 
 ; Import SUVI effective areas
@@ -128,8 +129,12 @@ radiance = irradiance_photons / 2.16E-5 ; [photons/s/cm2/nm/sr]
 radiance = radiance * 5.42E-10 ; [photons/s/cm2/nm/pixel] (plate scale is 4.8 arcsec/pixel = 5.42E-10 sr/pixel)
 instrument_response_per_pixel = reform(radiance * exposure_time * effective_area * quantum_efficiency * quantum_yield) ; [electrons/nm/pixel]
 in_band_indices = where(solar_spectrum.wavelength GE 17 AND solar_spectrum.wavelength LE 20, complement=out_of_band_indices)
+short_indices = where(solar_spectrum.wavelength LT 17)
+long_indices = where(solar_spectrum.wavelength GT 20)
 instrument_response_per_pixel_in_band = int_tabulated(solar_spectrum.wavelength[in_band_indices], instrument_response_per_pixel[in_band_indices]) ; [electrons/pixel]
-instrument_response_per_pixel_out_of_band = int_tabulated(solar_spectrum.wavelength[out_of_band_indices], instrument_response_per_pixel[out_of_band_indices]) ; [electrons/pixel]
+instrument_response_per_pixel_short = int_tabulated(solar_spectrum.wavelength[short_indices], instrument_response_per_pixel[short_indices]) ; [electrons/pixel]
+instrument_response_per_pixel_long = int_tabulated(solar_spectrum.wavelength[long_indices], instrument_response_per_pixel[long_indices]) ; [electrons/pixel]
+instrument_response_per_pixel_out_of_band = instrument_response_per_pixel_short + instrument_response_per_pixel_long
 
 ; Create plots
 p1 = plot(solar_spectrum.wavelength, effective_area, thick=2, font_size=16, $ 
