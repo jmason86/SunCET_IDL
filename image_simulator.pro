@@ -17,7 +17,10 @@
 ;   dark_current [double]:             Not used normally, except to override the hardcoded cold/warm detector associated dark currents. [e-/px/s] units.
 ;                                      Overrides /WARM_DETECTOR keyword if both are used.
 ;   missing_line_scale_factor [float]: Set this to a value to use to scale data up to account for weak non-modeled lines
+;   filter [string]:                   Set this to the type of filter to be used. It will be applied at both entrance and focal plane. Option include (but are not limited to) 'Al_150nm' (default), 'AlZr', 'AlMg'.
+;   mesh_transmission [float]:         Support mesh for the entrance filter. [% but as a fraction] 5lpi nickel mesh = 0.98, 20 LPI = ???? (default), 70 LPI nickel mesh = 0.83 
 ;   mirror_coating [string]:           Which mirror coating to use. Either 'B4C' (Default; shorthand for B4C/Mo/Al), 'SiMo', or 'AlZr'. Case insensitive.
+;   segmentation [float]:              How many mirror coating segments are there on the mirror? Default is 1 (i.e., whole mirror has one coating). If mirror is split 50/50 for different coatings, then set this value to 2.
 ;
 ; KEYWORD PARAMETERS:
 ;   NO_SPIKES:   Set to disable application of spikes to data from particle hits (e.g., while in the SAA or during an SEP storm)
@@ -42,8 +45,8 @@
 ;   image_simulator, image, exposure_time_sec=1.0, output_SNR=snr, output_image_noise=image_noise, output_image_final=image_final
 ;-
 PRO image_simulator, sim_array, sim_plate_scale, waves, $
-                     exposure_time_sec=exposure_time_sec, dark_current=dark_current, missing_line_scale_factor=missing_line_scale_factor, mirror_coating=mirror_coating, $
-                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, MODEL_PSF=MODEL_PSF, $
+                     exposure_time_sec=exposure_time_sec, dark_current=dark_current, missing_line_scale_factor=missing_line_scale_factor, filter=filter, mesh_transmission=mesh_transmission, mirror_coating=mirror_coating, segmentation=segmentation, $
+                     NO_SPIKES=NO_SPIKES, NO_DEAD_PIX=NO_DEAD_PIX, NO_PSF=NO_PSF, WARM_DETECTOR=WARM_DETECTOR, NO_DARK_SUBTRACT=NO_DARK_SUBTRACT, MODEL_PSF=MODEL_PSF, VIGIL_APL=VIGIL_APL, OUTPUT_EFFECTIVE_AREA_ONLY=OUTPUT_EFFECTIVE_AREA_ONLY, $
                      output_pure=output_pure, output_image_noise=output_image_noise, output_image_final=output_image_final
                      
                      
@@ -55,14 +58,23 @@ ENDIF
 IF exposure_time_sec EQ !NULL THEN BEGIN
   exposure_time_sec = 10.0
 ENDIF
+IF filter EQ !NULL THEN BEGIN
+  filter = 'Al_150nm'
+ENDIF
+IF mesh_transmission EQ !NULL THEN BEGIN
+  mesh_transmission = 0.9 ; [% but as a fraction] 5lpi nickel mesh = 0.98, 20 LPI = ????, 70 LPI nickel mesh = 0.83
+ENDIF
 IF mirror_coating EQ !NULL THEN BEGIN
   mirror_coating = 'B4C'
+ENDIF
+IF segmentation EQ !NULL THEN BEGIN
+  segmentation = 1.
 ENDIF
 
 ; set up environment variable
 base_path = getenv('SunCET_base')
-reflectivity_path = base_path + 'Mirror_Data/'
-psf_path = base_path + 'PSF_Data/'
+reflectivity_path = base_path + 'mirror_reflectivity/'
+psf_path = base_path + 'psf_data/'
 
 ; Check keywords (upfront for safety)
 no_spikes = keyword_set(NO_SPIKES)
@@ -72,6 +84,10 @@ no_psf = keyword_set(NO_PSF)
 warm_detector = keyword_set(WARM_DETECTOR)
 no_dark_subtract = keyword_set(NO_DARK_SUBTRACT)
 suvi_mirror = keyword_set(SUVI_MIRROR)
+
+IF keyword_set(VIGIL_APL) THEN BEGIN
+  model_psf = 1
+ENDIF
 
 ; Constants
 h = 6.62606957d-34     ; [Js]
@@ -97,25 +113,36 @@ if ~keyword_set(missing_line_scale_factor) then  missing_line_scale_factor = 1.3
 ; Telescope and detector parameters
 ;
 entrance_aperture = 6.5            ; [cm] diameter, AKA entrance pupil diameter
+IF keyword_set(VIGIL_APL) THEN entrance_aperture = 5.0 ; [cm] diameter
 primary_mirror_truncation = 0.0    ; [cm^2] area lost due the primary mirror being so big it has to be truncated from the nominal circle
 ;secondary_mirror_obscuration = 4.8 ; [cm] diameter, the secondary mirror blocks some of the light coming into the system
-;sc_aperture = entrance_aperture*!PI^2. - secondary_mirror_obscuration*!PI^2. - primary_mirror_truncation ; [cm^2] effective aperture
-secondary_mirror_obscuration = 0.35 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
-sc_aperture = (entrance_aperture*!PI^2 * (1 - secondary_mirror_obscuration)) - primary_mirror_truncation
+;sc_aperture = !PI*(entrance_aperture/2)^2. - !PI*(secondary_mirror_obscuration/2)^2. - primary_mirror_truncation ; [cm^2] effective aperture
+secondary_mirror_obscuration = 0.413 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
+IF keyword_set(VIGIL_APL) THEN secondary_mirror_obscuration = 0.0 ; [% as a fraction] off-axis design so no obscuration
+sc_aperture = (!PI*(entrance_aperture/2.)^2. * (1 - secondary_mirror_obscuration)) - primary_mirror_truncation
 sc_image_dimensions = [1500, 1500] ; [pixels]
+IF keyword_set(VIGIL_APL) THEN sc_image_dimensions = [2048, 2048] ; [pixels]
 SunCET_fov_deg = 2.                ; [deg] Assumes that the other direction FOV is the same (i.e., square FOV)
-sc_reflectivity = 0.223 * 0.223    ; [% but as fraction] two mirrors -- each of those is the average reflectance; TODO: make wavelength dependent
-sc_transmission = 0.6 * 0.85       ; [% but as fraction] entrance filter transmission * detector filter; TODO: make wavelength dependent
+IF keyword_set(VIGIL_APL) THEN suncet_fov_deg = 1.5 ; [deg]
+;entrance_filter_transmission = 0.78 * 0.78 * 0.98 ; [% but as a fraction] 70 nm polyimide = 0.47, 150 nm aluminum = 0.78, 20 nm carbon = 0.78, 5lpi nickel mesh = 0.98 (70 LPI nickel mesh = 0.83) ; TODO: Make wavelength dependent (see SunCET_Filter_Transmission_Poly_Al_C_V1.xlsx
+;focal_plane_filter_transmission = 0.78 * 0.98 ; [% but as a fraction] 70 nm polyimide = 0.47, 150 nm aluminum = 0.78, 5lpi nickel mesh = 0.98
+;sc_transmission = entrance_filter_transmission * focal_plane_filter_transmission ; [% but as fraction]
 sc_qe = 0.85                       ; [% but as a fraction] ; TODO: make wavelength dependent (find that goddard plot)
+IF keyword_set(VIGIL_APL) THEN sc_qe = 0.5 ; [% as a fraction] conservative estimate
 sc_read_noise = 5D                 ; [e-] Read noise
+IF keyword_set(VIGIL_APL) THEN sc_read_noise = 4D ; [e-] read noise
+IF keyword_set(VIGIL_APL) THEN dark_current = 10./(60.*60.) ; [e-/px/s] converted from 10 e-/px/hr
 pixel_full_well = 27e3             ; [e-] Actually the peak linear charge. The saturation charge is 33e3.
+IF keyword_set(VIGIL_APL) THEN pixel_full_well = 5e4
 num_binned_pixels = 4D             ; [#] The number of pixels to bin
+IF keyword_set(VIGIL_APL) THEN num_binned_pixels = 1D
 sc_readout_bits = 16               ; [bits] Bit depth of readout electronics
 ;sc_bias_mean = 20D                ; [e-/px] Average bias ; TODO: May not apply to CMOS, need to check -- there's e- shot noise if bias is low
 sc_gain = 1.8                      ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
 sc_detector_size = 1.1             ; [cm2]
 sc_plate_scale = 4.8               ; [arcsec/pixel]
 sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
+IF keyword_set(VIGIL_APL) THEN sc_num_pixels_per_bin = 1
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
                                    ; SPENVIS predicts about 1/3 the particle flux at 550 km vs SWAP's 725 km
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
@@ -133,11 +160,47 @@ IF dark_current NE !NULL THEN BEGIN
   sc_dark_current_stddev = 12. * 2.^((calculated_temperature - 20.) / 5.5) ; [e-/px/s] Dark current standard deviation (DSNU in spec sheet)
 ENDIF
 
+; Load and interpolate filter transmission data
+IF filter EQ 'Al_150nm' THEN BEGIN
+  restore, base_path + 'filter_transmission/filter_log_template.sav'
+  single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.1-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
+  filter_wavelength = single_filter_transmission.wavelength_angstrom ; [Å]
+  carbon_transmission = read_ascii(base_path + 'filter_transmission/C_20nm_thick_0.01-2066nm_range.csv', template=filter_log_template) ; 5 nm C
+  carbon_wavelength = carbon_transmission.wavelength_angstrom ; [Å]
+  carbon_transmission = reform(interpol(carbon_transmission.transmittance, carbon_wavelength, filter_wavelength))
+  filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * carbon_transmission * mesh_transmission
+  filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, waves))
+ENDIF ELSE IF filter EQ 'Zr' THEN BEGIN
+  restore, base_path + 'filter_transmission/additional_filters_from_frederic/zr_filter_template.sav'
+  single_filter_transmission = read_ascii(base_path + 'filter_transmission/additional_filters_from_frederic/LYRA_Zr_141nm_0000_2596.txt', template=zr_filter_template)
+  filter_wavelength = single_filter_transmission.wave_nm * 10. ; [Å]
+  filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * mesh_transmission
+  filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, waves))
+ENDIF ELSE IF filter EQ 'AlZr' THEN BEGIN
+  restore, base_path + 'filter_transmission/additional_filters_from_frederic/alzr_filter_template.sav'
+  single_filter_transmission = read_ascii(base_path + 'filter_transmission/additional_filters_from_frederic/DATA_FSI_AlZr_Luxel.txt', template=alzr_filter_template)
+  filter_wavelength = single_filter_transmission.wave_nm * 10. ; [Å]
+  filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * mesh_transmission
+  filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, waves))
+ENDIF ELSE IF filter EQ 'AlMg' THEN BEGIN
+  restore, base_path + 'filter_transmission/additional_filters_from_frederic/alzr_filter_template.sav'
+  single_filter_transmission = read_ascii(base_path + 'filter_transmission/additional_filters_from_frederic/DATA_FSI_AlMg_Luxel.txt', template=alzr_filter_template)
+  filter_wavelength = single_filter_transmission.wave_nm * 10. ; [Å]
+  filter_transmission_raw = single_filter_transmission.transmittance * single_filter_transmission.transmittance * mesh_transmission
+  filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, waves))
+ENDIF
+sc_transmission = filter_transmission
+
 ;; load and interpolate mirror reflectivity data
 IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
   r_wave = b4c.wave * 10. ; [Å] Comes in nm, so convert to Å
+  reflect = b4c.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'b4c_rigaku_surrogate_measurement', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'b4c_rigaku_ascii_template.sav'
+  b4c = read_ascii(reflectivity_path + 'b4c_rigaku_surrogate_measurement.csv', template=b4c_rigaku_template)
+  r_wave = b4c.wave_nm * 10. ; [Å] Comes in nm, so convert to Å
   reflect = b4c.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'alzr', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'alzr_ascii_template.sav'
@@ -149,6 +212,31 @@ ENDIF ELSE IF strcmp(mirror_coating, 'simo', /FOLD_CASE) THEN BEGIN
   simo = read_ascii(reflectivity_path + 'SiMo_195A_TH=5.0.txt', template=simo_template)
   r_wave = simo.wave ; Å
   reflect = simo.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'AlMoSiC', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'AlMoSiC_template.sav'
+  almosic = read_ascii(reflectivity_path + 'Aperiodique-ideal_AlMoSiC_5deg_fev2019_JR.txt', template=almosic_template)
+  r_wave = almosic.wave * 10. ; Å
+  reflect = almosic.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'AlMoB4C', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'almob4c_template.sav'
+  almob4c = read_ascii(reflectivity_path + 'IMD_195_AlMoB4C.txt', template=almob4c_template)
+  r_wave = almob4c.wave * 10. ; Å
+  reflect = almob4c.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'frederic_3_band_euv', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'frederic_3_band_euv.sav'
+  frederic_3_band_euv = read_ascii(reflectivity_path + 'frederic_3_band_euv.csv', template=frederic_3_band_euv_template)
+  r_wave = frederic_3_band_euv.wave ; [nm]
+  reflect = frederic_3_band_euv.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'frederic_195', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'IMD_195_AlMoB4C.sav'
+  frederic_195 = read_ascii(reflectivity_path + 'IMD_195_AlMoB4C.txt', template=frederic_195_template)
+  r_wave = frederic_195.wavelength_nm ; [nm]
+  reflect = frederic_195.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'mosi_131', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'MoSi_131_template.sav'
+  mosi_131 = read_ascii(reflectivity_path + 'MoSi_131.csv', template=mosi_131_template)
+  r_wave = mosi_131.wavelength_nm ; [nm]
+  reflect = mosi_131.reflectance
 ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
   return
@@ -158,10 +246,14 @@ sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectiviti
 ; Telescope/detector calculations
 sc_solid_angle_sr = (sc_plate_scale * arcsec2rad)^2.           ; [sr/pixel^2] Even though it should be labeled as /pixel^2 everywhere, convention is to just call this /pixel
 sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
-sc_eff_area =  sc_aperture * sc_reflectivity_wvl^2. * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
+sc_eff_area =  (sc_aperture/segmentation) * sc_reflectivity_wvl^2. * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
 sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
 sc_qy = (h*c / (waves * 1e-10)) * j2ev / 3.63                  ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
+
+IF keyword_set(OUTPUT_EFFECTIVE_AREA_ONLY) THEN BEGIN
+  return
+ENDIF
 
 ; Extract the instrument FOV from the simulation FOV (i.e., punch a square hole)
 sim_x_deg = jpmrange(-sim_fov_deg, sim_fov_deg, NPTS=sim_dimensions[0])
@@ -179,6 +271,10 @@ ENDFOR
 
 ; Drop the sr and bring in the /pixel2 instead. This also accounts for scaling to 1 AU. 
 im_array *= sc_solid_angle_sr ; [erg/cm2/s/pixel2]
+
+; Meng's model underestimates the amount of signal by about a factor of 8, according to analysis Dan did of SUVI data.
+; Can toggle the below code on/off (with comment character) to include it or not
+im_array *= 8.
 
 ; Apply the PSF
 if ~no_psf then begin 
