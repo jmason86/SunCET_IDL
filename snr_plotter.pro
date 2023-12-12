@@ -16,6 +16,7 @@
 ;                                    Default is 15.
 ;   n_images_to_stack [integer]:     The number of images to stack together and median through. Default is 4. 
 ;   mirror_coating [string]:         Which mirror coating to use. Can be either 'b4c', 'alzr', or 'simo'. Default is 'b4c'.  
+;   segmentation [float]:            How many mirror coating segments are there on the mirror? Default is 1 (i.e., whole mirror has one coating). If mirror is split 50/50 for different coatings, then set this value to 2.
 ;   dataloc [string]:                Path to the rendered EUV maps that are loaded as input.
 ;   saveloc [string]:                Path to save the output (SNR contours) to.
 ;   
@@ -34,25 +35,30 @@
 ; EXAMPLE:
 ;   Just run it!
 ;-
-PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, exposure_time_sec=exposure_time_sec, n_images_to_stack=n_images_to_stack, mirror_coating=mirror_coating, dataloc=dataloc, saveloc=saveloc
+PRO snr_plotter, snr_neighborhood_size=snr_neighborhood_size, rebin_size=rebin_size, exposure_time_sec=exposure_time_sec, n_images_to_stack=n_images_to_stack, filter=filter, mesh_transmission=mesh_transmission, mirror_coating=mirror_coating, segmentation=segmentation, dataloc=dataloc, saveloc=saveloc, $
+                 VIGIL_APL=VIGIL_APL
 
 ; Defaults
 if ~keyword_set(snr_neighborhood_size) then snr_neighborhood_size = 3
 if ~keyword_set(rebin_size) then rebin_size = 2
 IF exposure_time_sec EQ !NULL THEN exposure_time_sec = 15.0
 IF n_images_to_stack EQ !NULL THEN n_images_to_stack = 4
+IF filter EQ !NULL THEN filter = 'Al_150nm'
 IF mirror_coating EQ !NULL THEN mirror_coating = 'b4c'
+IF segmentation EQ !NULL THEN segmentation = 1.
+IF keyword_set(VIGIL_APL) THEN BEGIN
+  SunCET_image_size = [2048, 2048]
+ENDIF ELSE BEGIN
+  SunCET_image_size = [1500, 1500]
+ENDELSE
 
 ; James's config
-IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'MHD/dimmest/Rendered_EUV_Maps/'
+IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'mhd/dimmest/rendered_euv_maps/'
 
 ; dans config
 ;IF dataloc EQ !NULL THEN dataloc = getenv('SunCET_base') + 'em_maps_2011-02-15/rendered_maps/'
 
 IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/'
-
-; ~Constants
-SunCET_image_size = [1500, 1500]
 
 ;; Ensure snr_neighborhood_size is odd
 if (snr_neighborhood_size mod 2) eq 0 then message, "SNR Neighborhood must be odd."
@@ -63,19 +69,17 @@ restore, dataloc + '/euv_sim_300.sav'
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
-; exptime = 0.035  ; for solar disk
-exptime = 5
-rsun = 960./sc_plate_scale
+IF keyword_set(VIGIL_APL) THEN sc_plate_scale = 1.32 ; [arcsec/pixel]
+rsun = 960./sc_plate_scale ; [pixels] -- arcsec / arcsec/pixel
 theta = findgen(361) * !pi/180.
 ;; this is the box over which we calculate statistics
 ;; it has a bad variable name but I don't want to change it 
 
 ;; run the simulator
-
+image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=exposure_time_sec, filter=filter, mirror_coating=mirror_coating, segmentation=segmentation, VIGIL_APL=VIGIL_APL, /no_spike, $
+                 output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], n_images_to_stack)
 for n = 0, n_images_to_stack-1 do begin 
-	image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=exposure_time_sec, mirror_coating=mirror_coating, /no_spike, $
-		               output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
 	synth_image_arr[*, *, n] = image
 endfor
 
@@ -131,19 +135,22 @@ rsun_use = rsun/rebin_size
 xcen = SunCET_image_size[0]/(rebin_size * 2)
 ycen = SunCET_image_size[1]/(rebin_size * 2)
 
+
 saturated_normal = 65535L
+IF keyword_set(VIGIL_APL) THEN saturated_normal = 16383L
 saturated_log = alog10(saturated_normal)
 
 ; IDL plotting function method
-;i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
-;	         background_color='black', margin=0, window_title='SNR Contours')
+i1 = image(alog10(rebin_standard_image), max_value=saturated_log, min_value=0, dimensions=SunCET_image_size/rebin_size, $
+           background_color='black', margin=0, window_title='SNR Contours')
 ;FOR r_index = 1, 4 DO e = ellipse(xcen, ycen, major=rsun_use * r_index, /data, color='white', target=i1, fill_background=0)
-;c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
-;			      findgen(SunCET_image_size[1]/rebin_size), color='tomato', /OVERPLOT, $
-;            c_value = [30, 10, 1], c_thick=3, c_label_interval=[0.3, 0.5, 0.4], /C_LABEL_SHOW)
-;c.font_size = 16
-;i1.save, saveloc + 'snr_image_' + jpmprintnumber(exposure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
-
+e = ellipse(xcen, ycen, major=(rsun_use/2) * 1.8, /DATA, color='white', target=i1, fill_background=0)
+c = contour(smooth(rebin_pure_image/local_rms, 20, /edge_truncate), findgen(SunCET_image_size[0]/rebin_size), $
+            findgen(SunCET_image_size[1]/rebin_size), dimensions=suncet_image_size/rebin_size, /OVERPLOT, $
+            c_value = [40, 5], c_color = ['dodger blue', 'tomato'], c_thick=3, c_label_interval=[0.3, 0.19], /C_LABEL_SHOW)
+c.font_size = 30
+i1.save, saveloc + 'snr_image_' + jpmprintnumber(exposure_time_sec) + 'sec_' + 'rebin_' + jpmprintnumber(rebin_size, /NO_DECIMALS) + '_' + mirror_coating +'.png' 
+;STOP
 
 ; ; SSW / contour procedure method
 ; set_plot, 'ps'
