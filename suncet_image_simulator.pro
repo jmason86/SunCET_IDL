@@ -90,7 +90,7 @@ ENDIF ELSE BEGIN
   sub2 = sub1
   sub3 = sub1
 ENDELSE
-dataloc = getenv('SunCET_base') + 'MHD/Rendered_EUV_Maps_2011-02-15/fast_cme/'
+dataloc = getenv('SunCET_base') + 'mhd/dimmest/Rendered_EUV_Maps/'
 saveloc = '/Users/jmason86/Dropbox/Research/ResearchScientist_LASP/Proposals/2020 SunCET Phase A CSR/Analysis/SunCET Image Simulation/Image Simulation Results/2011-02-15/'
 snr_saveloc = getenv('SunCET_base') + 'SNR/2011-02-15/'
 
