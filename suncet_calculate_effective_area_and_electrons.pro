@@ -28,7 +28,7 @@ PRO suncet_calculate_effective_area_and_electrons, mirror_coating=mirror_coating
 
 ; Defaults
 IF mirror_coating EQ !NULL THEN BEGIN
-  mirror_coating = 'B4C_model'
+  mirror_coating = 'flight_fm1'
 ENDIF
 
 ; set up environment variable
@@ -53,13 +53,13 @@ solar_spectrum = suncet_read_whi_reference_spectrum()
 entrance_aperture = 6.5 ; [cm] diameter, AKA entrance pupil diameter
 secondary_mirror_obscuration = 0.413 ; [% as a fraction] what percentage of the entrance aperture is blocked by the secondary mirror
 aperture = (!PI * (entrance_aperture/2.)^2. * (1 - secondary_mirror_obscuration))
-mesh_transmission =  0.98 ; [% but as a fraction] 5lpi nickel mesh = 0.98, 70 LPI nickel mesh = 0.83
+mesh_transmission =  0.95 ; [% but as a fraction] 5lpi nickel mesh = 0.98, 70 LPI nickel mesh = 0.83, fitting line to those two suggests 20 LPI = 0.95
 quantum_efficiency = 0.85
 exposure_time = 15. ; [seconds]
 
 ; Load and interpolate filter transmission data
 restore, base_path + 'filter_transmission/filter_log_template.sav'
-single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.1-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
+single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.01-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
 filter_wavelength = single_filter_transmission.wavelength_angstrom / 10. ; [nm]
 carbon_transmission = read_ascii(base_path + 'filter_transmission/C_20nm_thick_0.01-2066nm_range.csv', template=filter_log_template) ; 5 nm C
 carbon_wavelength = carbon_transmission.wavelength_angstrom / 10. ; [nm]
@@ -68,7 +68,11 @@ filter_transmission_raw = single_filter_transmission.transmittance * single_filt
 filter_transmission = reform(interpol(filter_transmission_raw, filter_wavelength, solar_spectrum.wavelength))
 
 ; Load and interpolate mirror reflectivity data
-IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
+IF strcmp(mirror_coating, 'flight_fm1', /FOLD_CASE) THEN BEGIN
+  b4c = suncet_load_final_mirror_coating_measurements(fm=1)
+  r_wave = b4c.wavelength_nm
+  reflect = b4c.reflectivity
+ENDIF ELSE IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
   r_wave = b4c.wave ; [nm] Comes in nm, so convert to Å
@@ -102,22 +106,29 @@ ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
   return
 ENDELSE
-mirror_reflectivity = reform(interpol(reflect, r_wave, solar_spectrum.wavelength))
+mirror_reflectivity = reform(interpol(reflect, r_wave, solar_spectrum.wavelength) > 0.0)
 
 ; Effective area calculation
 effective_area = (aperture * mirror_reflectivity^2. * filter_transmission) > 0 ; [cm^2]
 quantum_yield = (h*c / (solar_spectrum.wavelength * 1e-9)) * j2ev / 3.63 ; [e-/phot] Quantum yield: how many electrons are produced for each abs
 
-; Import SUVI effective areas
+; Import GOES/SUVI effective areas
 restore, base_path + 'effective_area/suvi_effective_area_template.sav'
 suvi_171_effective_area = read_ascii(base_path + 'effective_area/suvi_171_effective_area.csv', template=suvi_effective_area_template)
 suvi_195_effective_area = read_ascii(base_path + 'effective_area/suvi_195_effective_area.csv', template=suvi_effective_area_template)
+
+; Import SolO/EUI/FSI effective areas
+restore, base_path + 'effective_area/fsi_effective_area_template.sav'
+fsi_174_effective_area = read_ascii(base_path + 'effective_area/fsi_174_effective_area.txt', template=fsi_template)
+
 
 ; Some statistics
 integrated_effective_area = int_tabulated(solar_spectrum.wavelength, effective_area)
 main_bandpass_indices = where(solar_spectrum.wavelength GE 15 AND solar_spectrum.wavelength LE 25)
 integrated_effective_area_main_bandpass = int_tabulated(solar_spectrum.wavelength[main_bandpass_indices], effective_area[main_bandpass_indices])
-suvi_integrated = int_tabulated(suvi_171_effective_area.wavelength[1:-1], suvi_171_effective_area.effective_area[1:-1]) + int_tabulated(suvi_195_effective_area.wavelength, suvi_195_effective_area.effective_area)
+suvi_171_integrated = int_tabulated(suvi_171_effective_area.wavelength[1:-1], suvi_171_effective_area.effective_area[1:-1])
+suvi_195_integrated = int_tabulated(suvi_195_effective_area.wavelength, suvi_195_effective_area.effective_area)
+fsi_integrated = int_tabulated(fsi_174_effective_area.wavelength_nm[1:-1], fsi_174_effective_area.effective_area_cm2[1:-1])
 
 ; Push spectrum through effective area and detector
 irradiance = solar_spectrum.irradiance * 1e-2^2 ; converts W/m2/nm to W/cm2/nm = J/s/cm2/nm
@@ -148,15 +159,18 @@ p2 = plot(solar_spectrum.wavelength, effective_area, thick=2, font_size=16, $
           xtitle='wavelength [nm]', xrange=[15, 25],$
           ytitle='effective area [cm$^2$]', yrange=[-0.1, 1.2], $
           title='SunCET baseline config')
-t2 = text(0.9, 0.8, 'integral = ' + JPMPrintNumber(integrated_effective_area_main_bandpass), font_size=16, alignment=1)
-p2a = plot(p2.xrange, [0, 0], '--', color='tomato', /OVERPLOT)
-p2b = plot(suvi_171_effective_area.wavelength, suvi_171_effective_area.effective_area, color='grey', '--', /OVERPLOT)
-p2c = plot(suvi_195_effective_area.wavelength, suvi_195_effective_area.effective_area, color='grey', '--', /OVERPLOT)
-t2a = text(0.9, 0.75, 'GOES/SUVI integral = ' + JPMPrintNumber(suvi_integrated), color='grey', font_size=16, alignment=1)
+t2 = text(0.9, 0.8, 'SunCET integral = ' + JPMPrintNumber(integrated_effective_area_main_bandpass), font_size=16, alignment=1)
+p2a = plot(suvi_171_effective_area.wavelength, suvi_171_effective_area.effective_area, color='grey', '--', /OVERPLOT)
+p2b = plot(suvi_195_effective_area.wavelength, suvi_195_effective_area.effective_area, color='grey', '--', /OVERPLOT)
+t2a = text(0.9, 0.75, 'GOES/SUVI 171 integral = ' + JPMPrintNumber(suvi_171_integrated), color='grey', font_size=16, alignment=1)
+t2b = text(0.9, 0.70, 'GOES/SUVI 195 integral = ' + JPMPrintNumber(suvi_195_integrated), color='grey', font_size=16, alignment=1)
+p2c = plot(fsi_174_effective_area.wavelength_nm, fsi_174_effective_area.effective_area_cm2, color='purple', '--', thick=4, /OVERPLOT)
+t2c = text(0.9, 0.65, 'SolO/FSI integral = ' + JPMPrintNumber(fsi_integrated), color='purple', font_size=16, alignment=1)
+p2z = plot(p2.xrange, [0, 0], '--', color='tomato', /OVERPLOT)
 
 
 p3 = plot(solar_spectrum.wavelength, instrument_response, thick=2, font_size=16, $
-          xtitle='wavelength [nm]', /XLOG, xrange=[10, 2500],$
+          xtitle='wavelength [nm]', /XLOG, xrange=[ 10, 2500],$
           ytitle='instrument response [electrons/nm]', /YLOG, yrange=[-1e5, 2e12], $
           title='solar spectrum through SunCET in baseline config')
 
