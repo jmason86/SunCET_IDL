@@ -73,9 +73,9 @@ IF strcmp(mirror_coating, 'flight_fm1', /FOLD_CASE) THEN BEGIN
   r_wave = b4c.wavelength_nm
   reflect = b4c.reflectivity
 ENDIF ELSE IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
-  restore, reflectivity_path + 'b4c_ascii_template.sav'
-  b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
-  r_wave = b4c.wave ; [nm] Comes in nm, so convert to Å
+  restore, reflectivity_path + 'XRO47864_TH=5.0_Windt_Measurements_template.sav'
+  b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0_Windt_Measurements.txt', template=windt_measurement_template)
+  r_wave = b4c.wavelength_nm
   reflect = b4c.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'b4c_model', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_model_template.sav'
