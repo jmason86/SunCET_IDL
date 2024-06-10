@@ -64,8 +64,8 @@ IF saveloc EQ !NULL THEN saveloc = getenv('SunCET_base') + 'SNR/'
 if (snr_neighborhood_size mod 2) eq 0 then message, "SNR Neighborhood must be odd."
 
 ;; recover an EUV map 
-;; leading edge of CME is approaching the edge of our sim at frame 150
-restore, dataloc + '/euv_sim_300.sav'
+;; leading edge of CME is approaching 3.5 Rs at frame 300 for dimmest, 196 for bright_fast
+restore, dataloc + '/euv_sim_196.sav'
 
 ;; configure some values we need for the sim and plotter
 sc_plate_scale = 4.8
@@ -77,10 +77,10 @@ theta = findgen(361) * !pi/180.
 
 ;; run the simulator
 image_simulator, rendered_maps, map_metadata.dx, lines.wvl, exposure_time_sec=exposure_time_sec, filter=filter, mirror_coating=mirror_coating, segmentation=segmentation, VIGIL_APL=VIGIL_APL, /no_spike, $
-                 output_pure = pure_image, output_image_noise=noise_image, output_image_final=image
+                 output_pure = pure_image, output_image_noise=noise_image, output_image_final=image_final
 synth_image_arr = fltarr(SunCET_image_size[0], SunCET_image_size[1], n_images_to_stack)
 for n = 0, n_images_to_stack-1 do begin 
-	synth_image_arr[*, *, n] = image
+	synth_image_arr[*, *, n] = image_final
 endfor
 
 ;; rebin to the real image scale 

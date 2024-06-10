@@ -141,8 +141,6 @@ sc_readout_bits = 16               ; [bits] Bit depth of readout electronics
 sc_gain = 1.8                      ; [DN/e-] From Alan ; TODO reconcile units vs above with Dan
 sc_detector_size = 1.1             ; [cm2]
 sc_plate_scale = 4.8               ; [arcsec/pixel]
-sc_num_pixels_per_bin = 4          ; number of pixels that go into one spatial resolution element
-IF keyword_set(VIGIL_APL) THEN sc_num_pixels_per_bin = 1
 spike_rate = 2100.0                ; [spikes/s/cm2] based on SWAP analysis of worst case (most times will be ~40 spikes/s/cm2)
                                    ; SPENVIS predicts about 1/3 the particle flux at 550 km vs SWAP's 725 km
 psf_80pct_arcsec = 20.             ; [arcsec] PSF 80% encircled energy width, using typical value from Alan's analysis 
@@ -163,7 +161,7 @@ ENDIF
 ; Load and interpolate filter transmission data
 IF filter EQ 'Al_150nm' THEN BEGIN
   restore, base_path + 'filter_transmission/filter_log_template.sav'
-  single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.1-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
+  single_filter_transmission = read_ascii(base_path + 'filter_transmission/Al_150nm_thick_0.01-1250nm_range.csv', template=filter_log_template) ; 150 nm Al
   filter_wavelength = single_filter_transmission.wavelength_angstrom ; [Å]
   carbon_transmission = read_ascii(base_path + 'filter_transmission/C_20nm_thick_0.01-2066nm_range.csv', template=filter_log_template) ; 5 nm C
   carbon_wavelength = carbon_transmission.wavelength_angstrom ; [Å]
@@ -192,11 +190,24 @@ ENDIF
 sc_transmission = filter_transmission
 
 ;; load and interpolate mirror reflectivity data
-IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
+IF strcmp(mirror_coating, 'flight_fm1', /FOLD_CASE) THEN BEGIN
+  b4c = suncet_load_final_mirror_coating_measurements(fm=1)
+  r_wave = b4c.wavelength_nm
+  reflect = b4c.reflectivity
+ENDIF ELSE IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
   r_wave = b4c.wave * 10. ; [Å] Comes in nm, so convert to Å
   reflect = b4c.reflectance
+ENDIF ELSE IF strcmp(mirror_coating, 'b4c_rigaku_flight_measurements', /FOLD_CASE) THEN BEGIN
+  restore, reflectivity_path + 'b4c_rigaku_ascii_template.sav'
+  b4c1 = read_ascii(reflectivity_path + 'b4c_rigaku_surrogate_measurement.csv', template=b4c_rigaku_template)
+  r_wave1 = b4c1.wave_nm * 10. ; [Å] Comes in nm, so convert to Å
+  reflect1 = b4c1.reflectance
+  
+  b4c2 = read_ascii(reflectivity_path + 'b4c_rigaku_m2_first_measurement.csv', template=b4c_rigaku_template)
+  r_wave2 = b4c2.wave_nm * 10. ; [Å] Comes in nm, so convert to Å
+  reflect2 = b4c2.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'b4c_rigaku_surrogate_measurement', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_rigaku_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'b4c_rigaku_surrogate_measurement.csv', template=b4c_rigaku_template)
@@ -241,14 +252,19 @@ ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
   return
 ENDELSE
-sc_reflectivity_wvl = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
+IF strcmp(mirror_coating, 'b4c_rigaku_flight_measurements') THEN BEGIN
+  first_bounce_reflectivity = interpol(reflect1, r_wave1, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
+  second_bounce_reflectivity = interpol(reflect2, r_wave2, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
+  sc_reflectivity_wvl = first_bounce_reflectivity * second_bounce_reflectivity
+ENDIF ELSE BEGIN
+  single_bounce_reflectivity = interpol(reflect, r_wave, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
+  sc_reflectivity_wvl = single_bounce_reflectivity^2.
+ENDELSE
 
 ; Telescope/detector calculations
 sc_solid_angle_sr = (sc_plate_scale * arcsec2rad)^2.           ; [sr/pixel^2] Even though it should be labeled as /pixel^2 everywhere, convention is to just call this /pixel
-sc_fw = pixel_full_well * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
-sc_eff_area =  (sc_aperture/segmentation) * sc_reflectivity_wvl^2. * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
-sc_conversion = sc_fw/(2.^sc_readout_bits)                     ; [e-/DN] Camera readout conversion (kludge); TODO: double check this
-sc_spatial_resolution = sc_plate_scale * sc_num_pixels_per_bin ; [arcsec] The spatial resolution of the binned image
+sc_fw = pixel_full_well * sc_gain ; [DN]; 2024-01-10: JPM: I don't think it's physical to scale up by the number of pixels in a software bin * num_binned_pixels                    ; [e-] full well -- it's 1.08e5  ; Ask Alan if binning allows an actual larger full well
+sc_eff_area =  (sc_aperture/segmentation) * sc_reflectivity_wvl * sc_transmission ; [cm^2] TODO: can fold in sc_qe here
 sc_qy = (h*c / (waves * 1e-10)) * j2ev / 3.63                  ; [e-/phot] Quantum yield: how many electrons are produced for each absorbed photon, wavelength dependent (171Å = 72.9 ev/3.63; 200Å = 62 ev/3.63)
 
 IF keyword_set(OUTPUT_EFFECTIVE_AREA_ONLY) THEN BEGIN
@@ -274,7 +290,7 @@ im_array *= sc_solid_angle_sr ; [erg/cm2/s/pixel2]
 
 ; Meng's model underestimates the amount of signal by about a factor of 8, according to analysis Dan did of SUVI data.
 ; Can toggle the below code on/off (with comment character) to include it or not
-im_array *= 8.
+;im_array *= 8.
 
 ; Apply the PSF
 if ~no_psf then begin 
