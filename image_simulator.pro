@@ -191,23 +191,17 @@ sc_transmission = filter_transmission
 
 ;; load and interpolate mirror reflectivity data
 IF strcmp(mirror_coating, 'flight_fm1', /FOLD_CASE) THEN BEGIN
-  b4c = suncet_load_final_mirror_coating_measurements(fm=1)
-  r_wave = b4c.wavelength_nm
-  reflect = b4c.reflectivity
+  b4c = suncet_load_final_mirror_coating_measurements(fm=1, /SEPARATE_MIRRORS)
+  r_wave1 = b4c.rigaku_m1.wavelength_nm * 10. ; [Å] Comes in nm, so convert to Å
+  reflect1 = b4c.rigaku_m1.reflectivity
+  
+  r_wave2 = b4c.rigaku_m2.wavelength_nm * 10. ; [Å] Comes in nm, so convert to Å
+  reflect2 = b4c.rigaku_m2.reflectivity 
 ENDIF ELSE IF strcmp(mirror_coating, 'b4c', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'XRO47864_TH=5.0.txt', template=b4c_template)
   r_wave = b4c.wave * 10. ; [Å] Comes in nm, so convert to Å
   reflect = b4c.reflectance
-ENDIF ELSE IF strcmp(mirror_coating, 'b4c_rigaku_flight_measurements', /FOLD_CASE) THEN BEGIN
-  restore, reflectivity_path + 'b4c_rigaku_ascii_template.sav'
-  b4c1 = read_ascii(reflectivity_path + 'b4c_rigaku_surrogate_measurement.csv', template=b4c_rigaku_template)
-  r_wave1 = b4c1.wave_nm * 10. ; [Å] Comes in nm, so convert to Å
-  reflect1 = b4c1.reflectance
-  
-  b4c2 = read_ascii(reflectivity_path + 'b4c_rigaku_m2_first_measurement.csv', template=b4c_rigaku_template)
-  r_wave2 = b4c2.wave_nm * 10. ; [Å] Comes in nm, so convert to Å
-  reflect2 = b4c2.reflectance
 ENDIF ELSE IF strcmp(mirror_coating, 'b4c_rigaku_surrogate_measurement', /FOLD_CASE) THEN BEGIN
   restore, reflectivity_path + 'b4c_rigaku_ascii_template.sav'
   b4c = read_ascii(reflectivity_path + 'b4c_rigaku_surrogate_measurement.csv', template=b4c_rigaku_template)
@@ -252,7 +246,7 @@ ENDIF ELSE BEGIN
   message, /INFO, 'No matching mirror coating supplied. Must be either "B4C", "AlZr", or "SiMo".'
   return
 ENDELSE
-IF strcmp(mirror_coating, 'b4c_rigaku_flight_measurements') THEN BEGIN
+IF strcmp(mirror_coating, 'flight_fm1') THEN BEGIN
   first_bounce_reflectivity = interpol(reflect1, r_wave1, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
   second_bounce_reflectivity = interpol(reflect2, r_wave2, waves) ; [unitless] reflectivities at target wavelengths, r_wave in [Å]
   sc_reflectivity_wvl = first_bounce_reflectivity * second_bounce_reflectivity

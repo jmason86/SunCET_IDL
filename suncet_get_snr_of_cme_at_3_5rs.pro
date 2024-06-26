@@ -38,7 +38,7 @@ tic
 
 ; Defaults
 IF mhd_sim EQ !NULL THEN BEGIN
-  mhd_sim = 'dimmest'
+  mhd_sim = 'bright_fast'
 ENDIF
 IF exposure_time1 EQ !NULL THEN BEGIN
   exposure_time1 = 0.035
@@ -52,7 +52,7 @@ IF binning EQ !NULL THEN BEGIN
   binning = 2
 ENDIF
 IF mirror_coating EQ !NULL THEN BEGIN
-  mirror_coating = 'b4c_rigaku_surrogate_measurement'
+  mirror_coating = 'flight_fm1'
 ENDIF
 
 ; Directory config
